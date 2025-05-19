@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stealth Address Demo</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background-color: #f9f9f9;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #eee;
+            border-radius: 5px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h2>Stealth Address Generator</h2>
+    <button onclick="generateAddr()">Generate Address</button>
+    <div id="result">Result will appear here.</div>
+
+    <script>
+        async function generateAddr() {
+            const resDiv = document.getElementById("result");
+            resDiv.textContent = "Generating...";
+
+            try {
+                const response = await fetch("http://localhost:5000/addrgen");
+                const data = await response.json();
+                if (data.addr_hex) {
+                    resDiv.textContent = data.addr_hex;
+                } else {
+                    resDiv.textContent = "Error: " + JSON.stringify(data);
+                }
+            } catch (err) {
+                resDiv.textContent = "Fetch error: " + err;
+            }
+        }
+    </script>
+</body>
+</html>
+
