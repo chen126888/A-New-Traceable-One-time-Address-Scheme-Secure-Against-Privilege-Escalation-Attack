@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Wall -fPIC -I.         # -fPIC：生成可重定位位置的code (for .so)
-LIBS = -lpbc -lcrypto            # 使用 PBC + OpenSSL
+CFLAGS = -Wall -fPIC -I.         # -fPIC：生成可重定位位置的 code (for .so)
+LIBS = -lpbc -lgmp -lcrypto      #  -lgmp 支援 mpz_t　-lpbc: pbc -lcrypto:openssl
 OUT = ../lib/libstealth.so       # 輸出路徑
-SRC = my_stealth.c
+SRC = my_scheme.c
 
 all: $(OUT)
 
@@ -11,4 +11,3 @@ $(OUT): $(SRC)
 
 clean:
 	rm -f *.o $(OUT)
-

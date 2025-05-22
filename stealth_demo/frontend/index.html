@@ -1,50 +1,134 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Stealth Address Demo</title>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background-color: #f9f9f9;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-        }
-        #result {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #eee;
-            border-radius: 5px;
-            word-break: break-all;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Stealth Scheme Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    button { margin: 5px; padding: 8px 12px; }
+    .section { margin-top: 15px; }
+    .output { margin-top: 5px; padding: 8px; border: 1px solid #ccc; background: #f9f9f9; white-space: pre-wrap; }
+    input[type=text] { width: 300px; padding: 6px; }
+  </style>
 </head>
 <body>
-    <h2>Stealth Address Generator</h2>
-    <button onclick="generateAddr()">Generate Address</button>
-    <div id="result">Result will appear here.</div>
+  <h1>Stealth Scheme Demo</h1>
 
-    <script>
-        async function generateAddr() {
-            const resDiv = document.getElementById("result");
-            resDiv.textContent = "Generating...";
+  <div class="section">
+    <button onclick="callAddrGen()">1. Generate Address</button>
+    <div class="output" id="output-addr"></div>
+  </div>
 
-            try {
-                const response = await fetch("http://localhost:5000/addrgen");
-                const data = await response.json();
-                if (data.addr_hex) {
-                    resDiv.textContent = data.addr_hex;
-                } else {
-                    resDiv.textContent = "Error: " + JSON.stringify(data);
-                }
-            } catch (err) {
-                resDiv.textContent = "Fetch error: " + err;
-            }
-        }
-    </script>
+  <div class="section">
+    <button onclick="callDskGen()">2. Generate DSK</button>
+    <div class="output" id="output-dsk"></div>
+  </div>
+
+  <div class="section">
+    <button onclick="callAddrVerify()">3. AddrVerify</button>
+    <button onclick="callFastAddrVerify()">4. Fast AddrVerify</button>
+    <div class="output" id="output-verify"></div>
+  </div>
+
+  <div class="section">
+    <label>Message: </label><input type="text" id="msg" value="hello">
+    <button onclick="callSign()">5. Sign</button>
+    <div class="output" id="output-sign"></div>
+  </div>
+
+  <div class="section">
+    <button onclick="callVerifySig()">6. Verify Signature</button>
+    <div class="output" id="output-sigverify"></div>
+  </div>
+
+  <div class="section">
+    <button onclick="callTrace()">7. Trace</button>
+    <div class="output" id="output-trace"></div>
+  </div>
+
+  <script>
+    let state = {};
+
+    async function callAddrGen() {
+      const res = await fetch('/addrgen');
+      const data = await res.json();
+      state.addr = data.addr_hex;
+      state.r1 = state.addr.slice(0, 128);
+      state.c = state.addr.slice(0, 128);
+      document.getElementById('output-addr').innerText = '[AddrGen]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callDskGen() {
+      const res = await fetch('/dskgen', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ addr: state.addr, r1: state.r1 })
+      });
+      const data = await res.json();
+      state.dsk = data.dsk_hex;
+      document.getElementById('output-dsk').innerText = '[DskGen]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callAddrVerify() {
+      const res = await fetch('/addrverify', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ addr: state.addr, r1: state.r1, c: state.c })
+      });
+      const data = await res.json();
+      document.getElementById('output-verify').innerText = '[AddrVerify]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callFastAddrVerify() {
+      const res = await fetch('/fastaddrverify', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ r1: state.r1, c: state.c })
+      });
+      const data = await res.json();
+      document.getElementById('output-verify').innerText += '\n[FastAddrVerify]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callSign() {
+      const msg = document.getElementById('msg').value;
+      const res = await fetch('/sign', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ addr: state.addr, dsk: state.dsk, msg })
+      });
+      const data = await res.json();
+      state.q = data.Q_sigma;
+      state.h = data.hZ;
+      state.msg = msg;
+      document.getElementById('output-sign').innerText = '[Sign]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callVerifySig() {
+      const res = await fetch('/verify', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          addr: state.addr,
+          r2: state.r1,
+          c: state.c,
+          msg: state.msg,
+          h: state.h,
+          q: state.q
+        })
+      });
+      const data = await res.json();
+      document.getElementById('output-sigverify').innerText = '[Verify Signature]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callTrace() {
+      const res = await fetch('/trace', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ addr: state.addr, r1: state.r1, r2: state.r1, c: state.c })
+      });
+      const data = await res.json();
+      document.getElementById('output-trace').innerText = '[Trace]\n' + JSON.stringify(data, null, 2);
+    }
+  </script>
 </body>
 </html>
-
