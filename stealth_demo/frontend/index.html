@@ -49,12 +49,13 @@
   <script>
     let state = {};
 
-    async function callAddrGen() {
+     async function callAddrGen() {
       const res = await fetch('/addrgen');
       const data = await res.json();
       state.addr = data.addr_hex;
-      state.r1 = state.addr.slice(0, 128);
-      state.c = state.addr.slice(0, 128);
+      state.r1 = data.r1_hex;
+      state.r2 = data.r2_hex;
+      state.c  = data.c_hex;
       document.getElementById('output-addr').innerText = '[AddrGen]\n' + JSON.stringify(data, null, 2);
     }
 

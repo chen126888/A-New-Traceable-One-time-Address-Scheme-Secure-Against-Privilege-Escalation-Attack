@@ -8,7 +8,7 @@ lib.stealth_setup(b"../param/a.param")
 
 # Setup argument types
 lib.stealth_setup.argtypes = [c_char_p]
-lib.stealth_generate_addr.argtypes = [c_char_p, c_int]
+lib.stealth_generate_addr.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_int]
 lib.stealth_generate_addr.restype = c_int
 lib.stealth_addr_verify.argtypes = [c_char_p, c_char_p, c_char_p]
 lib.stealth_addr_verify.restype = c_int
@@ -33,11 +33,21 @@ def index():
 
 @app.route("/addrgen", methods=["GET"])
 def addrgen():
-    buf = create_string_buffer(512)
-    n = lib.stealth_generate_addr(buf, 512)
+    buf_addr = create_string_buffer(512)
+    buf_r1   = create_string_buffer(512)
+    buf_r2   = create_string_buffer(512)
+    buf_c    = create_string_buffer(512)
+
+    n = lib.stealth_generate_addr(buf_addr, buf_r1, buf_r2, buf_c, 512)
     if n <= 0:
         return jsonify({"error": "generation failed"}), 500
-    return jsonify({"addr_hex": buf.raw[:n].hex()})
+
+    return jsonify({
+        "addr_hex": buf_addr.raw[:n].hex(),
+        "r1_hex": buf_r1.raw[:n].hex(),
+        "r2_hex": buf_r2.raw[:n].hex(),
+        "c_hex":  buf_c.raw[:n].hex()
+    })
 
 @app.route("/dskgen", methods=["POST"])
 def dskgen():

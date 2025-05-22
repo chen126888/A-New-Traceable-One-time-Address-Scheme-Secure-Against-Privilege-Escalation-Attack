@@ -148,7 +148,6 @@ int stealth_generate_addr(
   int r1_len = element_length_in_bytes(R1);
   int r2_len = element_length_in_bytes(R2);
   int c_len  = element_length_in_bytes(C);
-
   if (n > max_len || r1_len > max_len || r2_len > max_len || c_len > max_len)
     return -1;
 
