@@ -9,127 +9,99 @@
     .section { margin-top: 15px; }
     .output { margin-top: 5px; padding: 8px; border: 1px solid #ccc; background: #f9f9f9; white-space: pre-wrap; }
     input[type=text] { width: 300px; padding: 6px; }
+    select { padding: 5px; }
   </style>
 </head>
 <body>
   <h1>Stealth Scheme Demo</h1>
 
   <div class="section">
-    <button onclick="callAddrGen()">1. Generate Address</button>
+    <button onclick="callSetup()">0. Setup (Trace Key)</button>
+    <div class="output" id="output-setup"></div>
+  </div>
+
+  <div class="section">
+    <button onclick="callKeyGen()">1. KeyGen</button>
+    <button onclick="loadKeyList()">Load Key List</button>
+    <select id="key-select"></select>
+    <div class="output" id="output-keygen"></div>
+  </div>
+
+  <div class="section">
+    <button onclick="callAddrGen()">2. Generate Address (by selected key)</button>
     <div class="output" id="output-addr"></div>
   </div>
 
-  <div class="section">
-    <button onclick="callDskGen()">2. Generate DSK</button>
-    <div class="output" id="output-dsk"></div>
-  </div>
-
-  <div class="section">
-    <button onclick="callAddrVerify()">3. AddrVerify</button>
-    <button onclick="callFastAddrVerify()">4. Fast AddrVerify</button>
-    <div class="output" id="output-verify"></div>
-  </div>
-
-  <div class="section">
-    <label>Message: </label><input type="text" id="msg" value="hello">
-    <button onclick="callSign()">5. Sign</button>
-    <div class="output" id="output-sign"></div>
-  </div>
-
-  <div class="section">
-    <button onclick="callVerifySig()">6. Verify Signature</button>
-    <div class="output" id="output-sigverify"></div>
-  </div>
-
-  <div class="section">
-    <button onclick="callTrace()">7. Trace</button>
-    <div class="output" id="output-trace"></div>
-  </div>
-
   <script>
-    let state = {};
+    let state = {
+      keys: [],
+      traceKey: null,
+      selectedKeyIndex: 0
+    };
 
-     async function callAddrGen() {
-      const res = await fetch('/addrgen');
+    async function callSetup() {
+      const res = await fetch('/setup');
       const data = await res.json();
-      state.addr = data.addr_hex;
-      state.r1 = data.r1_hex;
-      state.r2 = data.r2_hex;
-      state.c  = data.c_hex;
+      state.traceKey = data;
+      document.getElementById('output-setup').innerText = '[Trace Key]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function callKeyGen() {
+      const res = await fetch('/keygen');
+      const data = await res.json();
+      state.keys.push(data);
+      updateKeyDropdown();
+      document.getElementById('output-keygen').innerText = '[KeyGen]\n' + JSON.stringify(data, null, 2);
+    }
+
+    async function loadKeyList() {
+      const res = await fetch('/keylist');
+      const list = await res.json();
+      state.keys = list;
+      updateKeyDropdown();
+    }
+
+    function updateKeyDropdown() {
+      const sel = document.getElementById('key-select');
+      sel.innerHTML = '';
+      state.keys.forEach((k, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.text = `Key ${i}`;
+        sel.appendChild(opt);
+      });
+      state.selectedKeyIndex = 0;
+    }
+
+    async function callAddrGen() {
+      if (state.keys.length === 0) {
+        alert("No keys available. Please generate or load keys first.");
+        return;
+      }
+      if (!state.traceKey) {
+        alert("Trace key not set. Please run Setup first.");
+        return;
+      }
+      const key = state.keys[state.selectedKeyIndex];
+      const res = await fetch('/addrgen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ A_hex: key.A_hex, B_hex: key.B_hex })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert("Error: " + (data.error || "Unknown"));
+        return;
+      }
       document.getElementById('output-addr').innerText = '[AddrGen]\n' + JSON.stringify(data, null, 2);
     }
 
-    async function callDskGen() {
-      const res = await fetch('/dskgen', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ addr: state.addr, r1: state.r1 })
+    window.onload = function () {
+      const sel = document.getElementById('key-select');
+      sel.addEventListener('change', function () {
+        state.selectedKeyIndex = parseInt(this.value);
       });
-      const data = await res.json();
-      state.dsk = data.dsk_hex;
-      document.getElementById('output-dsk').innerText = '[DskGen]\n' + JSON.stringify(data, null, 2);
-    }
-
-    async function callAddrVerify() {
-      const res = await fetch('/addrverify', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ addr: state.addr, r1: state.r1, c: state.c })
-      });
-      const data = await res.json();
-      document.getElementById('output-verify').innerText = '[AddrVerify]\n' + JSON.stringify(data, null, 2);
-    }
-
-    async function callFastAddrVerify() {
-      const res = await fetch('/fastaddrverify', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ r1: state.r1, c: state.c })
-      });
-      const data = await res.json();
-      document.getElementById('output-verify').innerText += '\n[FastAddrVerify]\n' + JSON.stringify(data, null, 2);
-    }
-
-    async function callSign() {
-      const msg = document.getElementById('msg').value;
-      const res = await fetch('/sign', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ addr: state.addr, dsk: state.dsk, msg })
-      });
-      const data = await res.json();
-      state.q = data.Q_sigma;
-      state.h = data.hZ;
-      state.msg = msg;
-      document.getElementById('output-sign').innerText = '[Sign]\n' + JSON.stringify(data, null, 2);
-    }
-
-    async function callVerifySig() {
-      const res = await fetch('/verify', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          addr: state.addr,
-          r2: state.r1,
-          c: state.c,
-          msg: state.msg,
-          h: state.h,
-          q: state.q
-        })
-      });
-      const data = await res.json();
-      document.getElementById('output-sigverify').innerText = '[Verify Signature]\n' + JSON.stringify(data, null, 2);
-    }
-
-    async function callTrace() {
-      const res = await fetch('/trace', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ addr: state.addr, r1: state.r1, r2: state.r1, c: state.c })
-      });
-      const data = await res.json();
-      document.getElementById('output-trace').innerText = '[Trace]\n' + JSON.stringify(data, null, 2);
-    }
+    };
   </script>
 </body>
 </html>

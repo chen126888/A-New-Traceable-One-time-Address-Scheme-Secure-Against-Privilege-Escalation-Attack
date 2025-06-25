@@ -10,31 +10,7 @@ static pairing_t pairing;
 static element_t g;
 
 // Static keys
-static element_t A, B, a, b, TK, k;
-
-void stealth_setup(const char* param_file) {
-    char *argv_fake[2];
-    argv_fake[0] = "prog";
-    argv_fake[1] = (char*)param_file;
-    pbc_demo_pairing_init(pairing, 2, argv_fake);
-
-    element_init_G1(g, pairing);
-    element_random(g);
-
-    element_init_G1(A, pairing);
-    element_init_G1(B, pairing);
-    element_init_Zr(a, pairing);
-    element_init_Zr(b, pairing);
-    element_random(a);
-    element_random(b);
-    element_pow_zn(A, g, a);
-    element_pow_zn(B, g, b);
-
-    element_init_G1(TK, pairing);
-    element_init_Zr(k, pairing);
-    element_random(k);
-    element_pow_zn(TK, g, k);
-}
+static element_t TK, k;
 
 void hash_to_mpz(mpz_t out, const unsigned char *data, size_t len, mpz_t mod) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -105,65 +81,117 @@ void H4(element_t outZr, element_t addr, const char* msg, element_t XGT) {
     mpz_clear(tmpz);
 }
 
-// Updated stealth_generate_addr to return R1, R2, C
-int stealth_generate_addr(
-  unsigned char* addr_buf,
-  unsigned char* r1_buf,
-  unsigned char* r2_buf,
-  unsigned char* c_buf,
-  int max_len
-) {
-  element_t Addr, R1, R2, C;
-  element_init_G1(Addr, pairing);
-  element_init_G1(R1, pairing);
-  element_init_G1(R2, pairing);
-  element_init_G1(C, pairing);
+void stealth_setup(const char* param_file) {
+    char *argv_fake[2];
+    argv_fake[0] = "prog";
+    argv_fake[1] = (char*)param_file;
+    pbc_demo_pairing_init(pairing, 2, argv_fake);
 
-  element_t rZ, r2Z;
-  element_init_Zr(rZ, pairing);
-  element_init_Zr(r2Z, pairing);
-  element_random(rZ);
+    element_init_G1(g, pairing);
+    element_random(g);
 
-  element_pow_zn(R1, g, rZ);
-  element_t Ar_pow_r; element_init_G1(Ar_pow_r, pairing);
-  element_pow_zn(Ar_pow_r, A, rZ);
-  H1(r2Z, Ar_pow_r);
+    element_init_G1(TK, pairing);
+    element_init_Zr(k, pairing);
+    element_random(k);
+    element_pow_zn(TK, g, k);
+}
 
-  element_pow_zn(R2, g, r2Z);
-  element_pow_zn(C, B, r2Z);
+void stealth_keygen(unsigned char* A_buf, unsigned char* B_buf, unsigned char* a_buf, unsigned char* b_buf, int max_len) {
+    element_t A, B, a, b;
+    element_init_G1(A, pairing);
+    element_init_G1(B, pairing);
+    element_init_Zr(a, pairing);
+    element_init_Zr(b, pairing);
 
-  element_t pairing_res, pairing_res_powr;
-  element_init_GT(pairing_res, pairing);
-  element_init_GT(pairing_res_powr, pairing);
-  pairing_apply(pairing_res, R2, TK, pairing);
-  element_pow_zn(pairing_res_powr, pairing_res, rZ);
+    element_random(a);
+    element_random(b);
+    element_pow_zn(A, g, a);
+    element_pow_zn(B, g, b);
 
-  element_t R3; element_init_G1(R3, pairing);
-  H2(R3, pairing_res_powr);
+    int len_A = element_length_in_bytes(A);
+    int len_B = element_length_in_bytes(B);
+    int len_a = element_length_in_bytes(a);
+    int len_b = element_length_in_bytes(b);
 
-  element_mul(Addr, R3, B);
-  element_mul(Addr, Addr, C);
+    if (len_A <= max_len) element_to_bytes(A_buf, A);
+    if (len_B <= max_len) element_to_bytes(B_buf, B);
+    if (len_a <= max_len) element_to_bytes(a_buf, a);
+    if (len_b <= max_len) element_to_bytes(b_buf, b);
 
-  int n = element_length_in_bytes(Addr);
-  int r1_len = element_length_in_bytes(R1);
-  int r2_len = element_length_in_bytes(R2);
-  int c_len  = element_length_in_bytes(C);
-  if (n > max_len || r1_len > max_len || r2_len > max_len || c_len > max_len)
-    return -1;
+    element_clear(A); element_clear(B);
+    element_clear(a); element_clear(b);
+}
 
-  element_to_bytes(addr_buf, Addr);
-  element_to_bytes(r1_buf, R1);
-  element_to_bytes(r2_buf, R2);
-  element_to_bytes(c_buf, C);
+void stealth_tracekeyget(unsigned char* TK_buf, unsigned char* k_buf, int max_len) {
 
-  element_clear(Addr); element_clear(R1); element_clear(R2); element_clear(C);
-  element_clear(rZ); element_clear(r2Z); element_clear(Ar_pow_r);
-  element_clear(pairing_res); element_clear(pairing_res_powr); element_clear(R3);
+    int len_TK = element_length_in_bytes(TK);
+    int len_k  = element_length_in_bytes(k);
+    if (len_TK <= max_len) element_to_bytes(TK_buf, TK);
+    if (len_k  <= max_len) element_to_bytes(k_buf, k);
 
-  return n;
 }
 
 
+// Updated stealth_generate_addr to return R1, R2, C
+void stealth_generate_addr(
+    unsigned char* A_buf,
+    unsigned char* B_buf,
+    unsigned char* TK_buf,
+    unsigned char* addr_buf,
+    unsigned char* r1_buf,
+    unsigned char* r2_buf,
+    unsigned char* c_buf,
+    int max_len
+) {
+    element_t A, B, Addr, R1, R2, C, rZ, r2Z, Ar_pow_r, pairing_res, pairing_res_powr, R3;
+
+    element_init_G1(A, pairing);
+    element_init_G1(B, pairing);
+    element_init_G1(TK, pairing);
+    element_from_bytes(A, A_buf);
+    element_from_bytes(B, B_buf);
+
+    element_init_G1(Addr, pairing);
+    element_init_G1(R1, pairing);
+    element_init_G1(R2, pairing);
+    element_init_G1(C, pairing);
+    element_init_Zr(rZ, pairing);
+    element_init_Zr(r2Z, pairing);
+    element_init_G1(Ar_pow_r, pairing);
+    element_init_GT(pairing_res, pairing);
+    element_init_GT(pairing_res_powr, pairing);
+    element_init_G1(R3, pairing);
+
+    element_random(rZ);
+    element_pow_zn(R1, g, rZ);
+    element_pow_zn(Ar_pow_r, A, rZ);
+    H1(r2Z, Ar_pow_r);
+    element_pow_zn(R2, g, r2Z);
+    element_pow_zn(C, B, r2Z);
+
+    pairing_apply(pairing_res, R2, TK, pairing);
+    element_pow_zn(pairing_res_powr, pairing_res, rZ);
+    H2(R3, pairing_res_powr);
+    element_mul(Addr, R3, B);
+    element_mul(Addr, Addr, C);
+
+    int len = element_length_in_bytes(Addr);
+    if (len > max_len) return ;
+
+    element_to_bytes(addr_buf, Addr);
+    element_to_bytes(r1_buf, R1);
+    element_to_bytes(r2_buf, R2);
+    element_to_bytes(c_buf, C);
+
+    element_clear(A); element_clear(B); 
+    element_clear(Addr); element_clear(R1); element_clear(R2); element_clear(C);
+    element_clear(rZ); element_clear(r2Z); element_clear(Ar_pow_r);
+    element_clear(pairing_res); element_clear(pairing_res_powr); element_clear(R3);
+
+}
+
+
+/*
 int stealth_addr_verify(unsigned char* addr_buf, unsigned char* r1_buf, unsigned char* c_buf) {
     element_t Addr, R1, C, R1_pow_a, C_prime, R3_prime, Addr_prime;
     element_init_G1(Addr, pairing);
@@ -376,3 +404,4 @@ int stealth_trace(unsigned char* addr_buf, unsigned char* r1_buf, unsigned char*
 
     return len;
 }
+*/
