@@ -41,6 +41,7 @@
       grid-template-columns: 1fr 1fr;
       gap: 20px;
       margin-bottom: 20px;
+      align-items: start; /* 讓格子頂部對齊，不會因為高度不同而居中對齊 */
     }
     
     .section {
@@ -49,6 +50,9 @@
       padding: 20px;
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
       transition: transform 0.3s ease;
+      width: 100%; /* 固定寬度為容器的100% */
+      max-width: 100%; /* 防止超出容器 */
+      box-sizing: border-box; /* 確保padding不會影響總寬度 */
     }
     
     .section:hover {
@@ -99,6 +103,11 @@
       font-size: 0.9em;
       max-height: 300px;
       overflow-y: auto;
+      word-wrap: break-word; /* 強制長詞換行 */
+      word-break: break-all; /* 允許在任何字符間換行 */
+      overflow-wrap: break-word; /* 現代瀏覽器的換行屬性 */
+      width: 100%; /* 確保輸出區域不會超出容器寬度 */
+      box-sizing: border-box;
     }
     
     .output.success {
@@ -162,6 +171,9 @@
     
     .wide-section {
       grid-column: 1 / -1;
+      width: 100%; /* 確保寬列也有固定寬度 */
+      max-width: 100%;
+      box-sizing: border-box;
     }
     
     .data-list {
@@ -223,13 +235,53 @@
       font-family: 'Courier New', monospace;
       font-size: 0.8em;
       color: #666;
-      word-break: break-all;
+      word-break: break-all; /* 讓長hex字串自動換行 */
+      overflow-wrap: break-word;
+      line-height: 1.4; /* 增加行高讓多行顯示更清楚 */
     }
     
     .tabs {
       display: flex;
       border-bottom: 2px solid #ddd;
       margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+    
+    .tab.active {
+      border-bottom-color: #667eea;
+      color: #667eea;
+      font-weight: bold;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+
+    /* 響應式設計：在不同螢幕寬度下調整列數 */
+    @media (max-width: 1200px) {
+      .grid {
+        grid-template-columns: 1fr; /* 小螢幕改為單列 */
+      }
+      
+      .wide-section {
+        grid-column: 1; /* 單列時不需要跨列 */
+      }
+    }
+    
+    @media (min-width: 1600px) {
+      .container {
+        max-width: 1600px; /* 大螢幕可以更寬 */
+      }
     }
     
     .tab {
@@ -1071,12 +1123,20 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
       
       displayOutput('output-keygen', `🔍 Key Details - ${key.id}
 🆔 Index: ${index}
-🔓 Public Key A: ${key.A_hex}
-🔓 Public Key B: ${key.B_hex}
-🔐 Private Key a: ${key.a_hex}
-🔐 Private Key b: ${key.b_hex}
 📄 Parameter File: ${key.param_file}
-📊 Status: ${key.status}`);
+📊 Status: ${key.status}
+
+🔓 Public Key A:
+${key.A_hex}
+
+🔓 Public Key B:
+${key.B_hex}
+
+🔐 Private Key a:
+${key.a_hex}
+
+🔐 Private Key b:
+${key.b_hex}`);
     }
 
     function showAddressDetails(index) {
@@ -1091,11 +1151,19 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
       displayOutput('output-addr', `🔍 Address Details - ${addr.id}
 🆔 Index: ${index}
 👤 Owner Key: ${addr.key_id} (Index: ${addr.key_index})
-🏠 Address: ${addr.addr_hex}
-🎲 R1: ${addr.r1_hex}
-🎲 R2: ${addr.r2_hex}
-🔒 C: ${addr.c_hex}
-📊 Status: ${addr.status}`);
+📊 Status: ${addr.status}
+
+🏠 Address:
+${addr.addr_hex}
+
+🎲 R1:
+${addr.r1_hex}
+
+🎲 R2:
+${addr.r2_hex}
+
+🔒 C:
+${addr.c_hex}`);
     }
 
     function showDSKDetails(index) {
@@ -1109,12 +1177,16 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
       
       displayOutput('output-dsk', `🔍 DSK Details - ${dsk.id}
 🆔 Index: ${index}
-🔐 DSK: ${dsk.dsk_hex}
 📧 For Address: ${dsk.address_id} (Index: ${dsk.address_index})
 👤 Owner Key: ${dsk.key_id} (Index: ${dsk.key_index})
-🏠 Address Hex: ${dsk.for_address}
 🔧 Generation Method: ${dsk.method}
-📊 Status: ${dsk.status}`);
+📊 Status: ${dsk.status}
+
+🔐 DSK:
+${dsk.dsk_hex}
+
+🏠 Address Hex:
+${dsk.for_address}`);
     }
 
     // Initialize page
