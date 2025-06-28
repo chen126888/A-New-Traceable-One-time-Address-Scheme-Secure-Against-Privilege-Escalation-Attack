@@ -76,6 +76,7 @@ setup_function_signatures()
 key_list = []
 address_list = []
 dsk_list = []
+tx_message_list = [] 
 trace_key = None
 system_initialized = False
 current_param_file = None
@@ -227,7 +228,8 @@ def setup():
         key_list.clear()
         address_list.clear()
         dsk_list.clear()
-        
+        tx_message_list.clear() 
+
         return jsonify({
             "status": "setup complete",
             "message": f"System initialized with {param_file}",
@@ -766,6 +768,7 @@ def status():
         "keys_count": len(key_list),
         "addresses_count": len(address_list),
         "dsks_count": len(dsk_list),
+        "tx_messages_count": len(tx_message_list),
         "g1_element_size": g1_size,
         "zr_element_size": zr_size,
         "library_loaded": True,
@@ -785,6 +788,7 @@ def reset_system():
         key_list.clear()
         address_list.clear()
         dsk_list.clear()
+        tx_message_list.clear()
         trace_key = None
         system_initialized = False
         current_param_file = None
@@ -795,6 +799,11 @@ def reset_system():
         })
     except Exception as e:
         raise e
+
+@app.route("/tx_messages", methods=["GET"])
+def get_tx_messages():
+    """Get list of all transaction messages"""
+    return jsonify(tx_message_list)
 
 if __name__ == "__main__":
     print("🚀 Starting Interactive Stealth Demo Server")
