@@ -252,6 +252,66 @@
     .tab-content.active {
       display: block;
     }
+
+    /* Performance test styles */
+    .performance-section {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border: 2px solid #667eea;
+    }
+
+    .performance-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .perf-metric {
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .perf-value {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .perf-label {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    /* Transaction message styles */
+    .tx-message {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      border-left: 4px solid #fdcb6e;
+    }
+
+    .tx-header {
+      font-weight: bold;
+      color: #856404;
+      margin-bottom: 10px;
+    }
+
+    .tx-field {
+      margin: 5px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+    }
+
+    .tx-field-label {
+      font-weight: bold;
+      color: #495057;
+    }
   </style>
 </head>
 <body>
@@ -344,6 +404,7 @@
           </select>
           <button onclick="callSign()" id="sign-btn">Sign Message</button>
         </div>
+        <div id="tx-messages-list"></div>
         <div class="output" id="output-sign"></div>
       </div>
 
@@ -352,15 +413,11 @@
         <h3>✅ Signature Verification</h3>
         <div class="controls">
           <div class="inline-controls">
-            <input type="text" id="verify-message-input" placeholder="Message to verify..." value="Test transaction message">
-            <select id="verify-addr-for-sig-select">
-              <option value="">Select address...</option>
+            <label>Select Transaction Message to Verify:</label>
+            <select id="tx-message-select">
+              <option value="">Select a transaction message...</option>
             </select>
             <button onclick="callVerifySignature()" id="verify-sig-btn">Verify Signature</button>
-          </div>
-          <div class="inline-controls">
-            <input type="text" id="q-sigma-input" placeholder="Q_sigma (signature component)...">
-            <input type="text" id="h-input" placeholder="H (hash component)...">
           </div>
         </div>
         <div class="output" id="output-verify-sig"></div>
@@ -380,6 +437,20 @@
         </div>
         <div class="output" id="output-trace"></div>
       </div>
+
+      <!-- Performance Test Section -->
+      <div class="section wide-section performance-section">
+        <h3>📊 Performance Test</h3>
+        <div class="controls">
+          <div class="inline-controls">
+            <label>Number of iterations:</label>
+            <input type="number" id="perf-iterations" value="100" min="1" max="1000" style="width: 100px;">
+            <button onclick="callPerformanceTest()" id="perf-btn">Run Performance Test</button>
+          </div>
+        </div>
+        <div class="performance-grid" id="performance-results"></div>
+        <div class="output" id="output-performance"></div>
+      </div>
     </div>
   </div>
 
@@ -388,6 +459,7 @@
       keys: [],
       addresses: [],
       dsks: [],
+      txMessages: [],
       traceKey: null,
       selectedKeyIndex: -1,
       selectedAddrIndex: -1,
@@ -495,6 +567,7 @@
         state.keys = [];
         state.addresses = [];
         state.dsks = [];
+        state.txMessages = [];
         updateAllLists();
         
       } catch (error) {
@@ -688,18 +761,32 @@
         
         const data = await res.json();
         
-        // Auto-fill verification fields
-        document.getElementById('verify-message-input').value = message;
-        document.getElementById('q-sigma-input').value = data.q_sigma_hex;
-        document.getElementById('h-input').value = data.h_hex;
-        document.getElementById('verify-addr-for-sig-select').value = data.address_index;
+        // Create transaction message
+        const txMessage = {
+          id: `tx_${state.txMessages.length}`,
+          message: message,
+          address_index: data.address_index,
+          address_id: data.address_id,
+          dsk_id: data.dsk_id,
+          q_sigma_hex: data.q_sigma_hex,
+          h_hex: data.h_hex,
+          r2_hex: state.addresses[data.address_index].r2_hex,
+          c_hex: state.addresses[data.address_index].c_hex,
+          addr_hex: state.addresses[data.address_index].addr_hex,
+          timestamp: new Date().toISOString()
+        };
+        
+        state.txMessages.push(txMessage);
+        updateTxMessagesList();
+        updateTxMessageSelect();
         
         displayOutput('output-sign', `✅ Message Signed Successfully!
 📝 Message: "${message}"
 🔐 DSK Used: ${data.dsk_id}
 📧 Address: ${data.address_id}
 🔏 Q_sigma: ${truncateHex(data.q_sigma_hex)}
-🔑 H: ${truncateHex(data.h_hex)}`);
+🔑 H: ${truncateHex(data.h_hex)}
+📦 Transaction Message Created: ${txMessage.id}`);
         
       } catch (error) {
         displayOutput('output-sign', 'Error: ' + error.message, true);
@@ -708,26 +795,25 @@
     }
 
     async function callVerifySignature() {
-      const message = document.getElementById('verify-message-input').value;
-      const qSigma = document.getElementById('q-sigma-input').value;
-      const h = document.getElementById('h-input').value;
-      const addrIndex = parseInt(document.getElementById('verify-addr-for-sig-select').value);
+      const txIndex = parseInt(document.getElementById('tx-message-select').value);
       
-      if (!message.trim() || !qSigma.trim() || !h.trim() || isNaN(addrIndex)) {
-        alert("Please fill in all fields!");
+      if (isNaN(txIndex)) {
+        alert("Please select a transaction message!");
         return;
       }
       
       const originalText = showLoading('verify-sig-btn');
       try {
+        const txMessage = state.txMessages[txIndex];
+        
         const res = await fetch('/verify_signature', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: message,
-            q_sigma_hex: qSigma,
-            h_hex: h,
-            address_index: addrIndex
+            message: txMessage.message,
+            q_sigma_hex: txMessage.q_sigma_hex,
+            h_hex: txMessage.h_hex,
+            address_index: txMessage.address_index
           })
         });
         
@@ -735,7 +821,8 @@
         
         const data = await res.json();
         displayOutput('output-verify-sig', `🔍 Signature Verification Results:
-📝 Message: "${message}"
+📦 Transaction: ${txMessage.id}
+📝 Message: "${txMessage.message}"
 📧 Address: ${data.address_id}
 ✅ Verification Result: ${data.valid ? '✅ Valid Signature' : '❌ Invalid Signature'}
 📊 Status: ${data.status}`);
@@ -780,12 +867,77 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
       hideLoading('trace-btn', originalText);
     }
 
+    async function callPerformanceTest() {
+      if (!state.setupComplete) {
+        alert("Please run Setup first!");
+        return;
+      }
+      
+      const iterations = parseInt(document.getElementById('perf-iterations').value) || 100;
+      const originalText = showLoading('perf-btn');
+      
+      try {
+        const res = await fetch('/performance_test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ iterations: iterations })
+        });
+        
+        if (!res.ok) throw new Error('Performance test failed');
+        
+        const data = await res.json();
+        
+        // Update performance results display
+        const resultsGrid = document.getElementById('performance-results');
+        resultsGrid.innerHTML = `
+          <div class="perf-metric">
+            <div class="perf-value">${data.addr_gen_ms}</div>
+            <div class="perf-label">Address Gen (ms)</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-value">${data.addr_verify_ms}</div>
+            <div class="perf-label">Addr Verify (ms)</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-value">${data.fast_verify_ms}</div>
+            <div class="perf-label">Fast Verify (ms)</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-value">${data.sign_ms}</div>
+            <div class="perf-label">Signing (ms)</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-value">${data.sig_verify_ms}</div>
+            <div class="perf-label">Sig Verify (ms)</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-value">${data.trace_ms}</div>
+            <div class="perf-label">Tracing (ms)</div>
+          </div>
+          <div class="perf-metric">
+            <div class="perf-value">${data.onetime_sk_ms}</div>
+            <div class="perf-label">DSK Gen (ms)</div>
+          </div>
+        `;
+        
+        displayOutput('output-performance', `✅ Performance Test Completed!
+🔄 Iterations: ${data.iterations}
+📊 All metrics displayed above
+⚡ Total operations: ${data.iterations * 7}`);
+        
+      } catch (error) {
+        displayOutput('output-performance', 'Error: ' + error.message, true);
+      }
+      hideLoading('perf-btn', originalText);
+    }
+
     // Update all dropdown lists and data displays
     function updateAllLists() {
       updateKeySelects();
       updateAddressSelects();
       updateDSKSelects();
       updateDataLists();
+      updateTxMessageSelect();
     }
 
     function updateKeySelects() {
@@ -805,7 +957,7 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
     }
 
     function updateAddressSelects() {
-      const selects = ['verify-addr-select', 'dsk-addr-select', 'trace-addr-select', 'verify-addr-for-sig-select'];
+      const selects = ['verify-addr-select', 'dsk-addr-select', 'trace-addr-select'];
       
       selects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -832,13 +984,43 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
       });
     }
 
+    function updateTxMessageSelect() {
+      const select = document.getElementById('tx-message-select');
+      select.innerHTML = '<option value="">Select a transaction message...</option>';
+      
+      state.txMessages.forEach((tx, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${tx.id} - "${tx.message.substring(0, 30)}${tx.message.length > 30 ? '...' : ''}"`;
+        select.appendChild(option);
+      });
+    }
+
+    function updateTxMessagesList() {
+      const container = document.getElementById('tx-messages-list');
+      container.innerHTML = '';
+      
+      state.txMessages.forEach((tx, index) => {
+        const txDiv = document.createElement('div');
+        txDiv.className = 'tx-message';
+        txDiv.innerHTML = `
+          <div class="tx-header">📦 ${tx.id} - ${new Date(tx.timestamp).toLocaleString()}</div>
+          <div class="tx-field"><span class="tx-field-label">Message:</span> "${tx.message}"</div>
+          <div class="tx-field"><span class="tx-field-label">Address:</span> ${truncateHex(tx.addr_hex, 12)}</div>
+          <div class="tx-field"><span class="tx-field-label">Signature:</span> ${truncateHex(tx.q_sigma_hex, 12)}</div>
+        `;
+        container.appendChild(txDiv);
+      });
+    }
+
     function updateDataLists() {
-      // Update key list
+      // Update key list with click handlers
       const keyList = document.getElementById('key-list');
       keyList.innerHTML = '';
       state.keys.forEach((key, index) => {
         const item = document.createElement('div');
         item.className = 'data-item';
+        item.onclick = () => showKeyDetails(index);
         item.innerHTML = `
           <div class="item-header">${key.id}</div>
           <div class="item-details">A: ${truncateHex(key.A_hex, 12)}</div>
@@ -847,12 +1029,13 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
         keyList.appendChild(item);
       });
       
-      // Update address list
+      // Update address list with click handlers
       const addrList = document.getElementById('address-list');
       addrList.innerHTML = '';
       state.addresses.forEach((addr, index) => {
         const item = document.createElement('div');
         item.className = 'data-item';
+        item.onclick = () => showAddressDetails(index);
         item.innerHTML = `
           <div class="item-header">${addr.id} (Owner: ${addr.key_id})</div>
           <div class="item-details hex-display">${truncateHex(addr.addr_hex, 20)}</div>
@@ -860,12 +1043,13 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
         addrList.appendChild(item);
       });
       
-      // Update DSK list
+      // Update DSK list with click handlers
       const dskList = document.getElementById('dsk-list');
       dskList.innerHTML = '';
       state.dsks.forEach((dsk, index) => {
         const item = document.createElement('div');
         item.className = 'data-item';
+        item.onclick = () => showDSKDetails(index);
         item.innerHTML = `
           <div class="item-header">${dsk.id}</div>
           <div class="item-details">For: ${dsk.address_id} (Owner: ${dsk.key_id})</div>
@@ -873,6 +1057,64 @@ ${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exac
         `;
         dskList.appendChild(item);
       });
+    }
+
+    // Detail display functions for clickable items
+    function showKeyDetails(index) {
+      const key = state.keys[index];
+      state.selectedKeyIndex = index;
+      
+      // Update selection visually
+      document.querySelectorAll('#key-list .data-item').forEach((item, i) => {
+        item.classList.toggle('selected', i === index);
+      });
+      
+      displayOutput('output-keygen', `🔍 Key Details - ${key.id}
+🆔 Index: ${index}
+🔓 Public Key A: ${key.A_hex}
+🔓 Public Key B: ${key.B_hex}
+🔐 Private Key a: ${key.a_hex}
+🔐 Private Key b: ${key.b_hex}
+📄 Parameter File: ${key.param_file}
+📊 Status: ${key.status}`);
+    }
+
+    function showAddressDetails(index) {
+      const addr = state.addresses[index];
+      state.selectedAddrIndex = index;
+      
+      // Update selection visually
+      document.querySelectorAll('#address-list .data-item').forEach((item, i) => {
+        item.classList.toggle('selected', i === index);
+      });
+      
+      displayOutput('output-addr', `🔍 Address Details - ${addr.id}
+🆔 Index: ${index}
+👤 Owner Key: ${addr.key_id} (Index: ${addr.key_index})
+🏠 Address: ${addr.addr_hex}
+🎲 R1: ${addr.r1_hex}
+🎲 R2: ${addr.r2_hex}
+🔒 C: ${addr.c_hex}
+📊 Status: ${addr.status}`);
+    }
+
+    function showDSKDetails(index) {
+      const dsk = state.dsks[index];
+      state.selectedDSKIndex = index;
+      
+      // Update selection visually
+      document.querySelectorAll('#dsk-list .data-item').forEach((item, i) => {
+        item.classList.toggle('selected', i === index);
+      });
+      
+      displayOutput('output-dsk', `🔍 DSK Details - ${dsk.id}
+🆔 Index: ${index}
+🔐 DSK: ${dsk.dsk_hex}
+📧 For Address: ${dsk.address_id} (Index: ${dsk.address_index})
+👤 Owner Key: ${dsk.key_id} (Index: ${dsk.key_index})
+🏠 Address Hex: ${dsk.for_address}
+🔧 Generation Method: ${dsk.method}
+📊 Status: ${dsk.status}`);
     }
 
     // Initialize page
