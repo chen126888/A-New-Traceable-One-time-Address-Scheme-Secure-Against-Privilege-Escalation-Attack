@@ -147,7 +147,74 @@ int stealth_addr_verify_simple(const unsigned char* R1_bytes, const unsigned cha
 }
 
 /**
- * Python Interface: Sign message
+ * Python Interface: Generate one-time secret key (DSK)
+ */
+void stealth_dsk_gen_simple(const unsigned char* addr_bytes, const unsigned char* r1_bytes,
+                           const unsigned char* a_bytes, const unsigned char* b_bytes,
+                           unsigned char* dsk_out, int buf_size) {
+    if (!stealth_is_initialized()) return;
+    
+    element_t Addr, R1, aZ, bZ, dsk;
+    element_init_G1(Addr, PAIRING);
+    element_init_G1(R1, PAIRING);
+    element_init_Zr(aZ, PAIRING);
+    element_init_Zr(bZ, PAIRING);
+    element_init_G1(dsk, PAIRING);
+    
+    // Deserialize inputs
+    element_from_bytes(Addr, (unsigned char*)addr_bytes);
+    element_from_bytes(R1, (unsigned char*)r1_bytes);
+    element_from_bytes(aZ, (unsigned char*)a_bytes);
+    element_from_bytes(bZ, (unsigned char*)b_bytes);
+    
+    // Call core function
+    stealth_onetime_skgen(dsk, Addr, R1, aZ, bZ);
+    
+    // Clear output buffer
+    memset(dsk_out, 0, buf_size);
+    
+    // Serialize output
+    element_to_bytes(dsk_out, dsk);
+    
+    element_clear(Addr); element_clear(R1); element_clear(aZ); element_clear(bZ);
+    element_clear(dsk);
+}
+
+/**
+ * Python Interface: Sign message with DSK
+ */
+void stealth_sign_with_dsk_simple(const unsigned char* addr_bytes, const unsigned char* dsk_bytes,
+                                 const char* message,
+                                 unsigned char* q_sigma_out, unsigned char* h_out, int buf_size) {
+    if (!stealth_is_initialized()) return;
+    
+    element_t Addr, dsk, Q_sigma, hZ;
+    element_init_G1(Addr, PAIRING);
+    element_init_G1(dsk, PAIRING);
+    element_init_G1(Q_sigma, PAIRING);
+    element_init_Zr(hZ, PAIRING);
+    
+    // Deserialize inputs
+    element_from_bytes(Addr, (unsigned char*)addr_bytes);
+    element_from_bytes(dsk, (unsigned char*)dsk_bytes);
+    
+    // Call core function
+    stealth_sign(Q_sigma, hZ, Addr, dsk, message);
+    
+    // Clear output buffers
+    memset(q_sigma_out, 0, buf_size);
+    memset(h_out, 0, buf_size);
+    
+    // Serialize outputs
+    element_to_bytes(q_sigma_out, Q_sigma);
+    element_to_bytes(h_out, hZ);
+    
+    element_clear(Addr); element_clear(dsk);
+    element_clear(Q_sigma); element_clear(hZ);
+}
+
+/**
+ * Python Interface: Sign message (original version)
  */
 void stealth_sign_simple(const unsigned char* addr_bytes, const unsigned char* r1_bytes,
                         const unsigned char* a_bytes, const unsigned char* b_bytes,

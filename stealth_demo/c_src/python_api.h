@@ -62,7 +62,33 @@ int stealth_addr_verify_simple(const unsigned char* R1_bytes, const unsigned cha
                               const unsigned char* a_bytes);
 
 /**
+ * Python Interface: Generate one-time secret key (DSK)
+ * @param addr_bytes Address as bytes
+ * @param r1_bytes R1 component as bytes
+ * @param a_bytes Private key a as bytes
+ * @param b_bytes Private key b as bytes
+ * @param dsk_out Buffer for one-time secret key (output)
+ * @param buf_size Size of output buffer
+ */
+void stealth_dsk_gen_simple(const unsigned char* addr_bytes, const unsigned char* r1_bytes,
+                           const unsigned char* a_bytes, const unsigned char* b_bytes,
+                           unsigned char* dsk_out, int buf_size);
+
+/**
  * Python Interface: Sign message
+ * @param addr_bytes Address as bytes
+ * @param dsk_bytes One-time secret key as bytes
+ * @param message Message to sign (null-terminated string)
+ * @param q_sigma_out Buffer for signature component Q (output)
+ * @param h_out Buffer for hash component H (output)
+ * @param buf_size Size of output buffers
+ */
+void stealth_sign_with_dsk_simple(const unsigned char* addr_bytes, const unsigned char* dsk_bytes,
+                                 const char* message,
+                                 unsigned char* q_sigma_out, unsigned char* h_out, int buf_size);
+
+/**
+ * Python Interface: Sign message (original version for compatibility)
  * @param addr_bytes Address as bytes
  * @param r1_bytes R1 component as bytes
  * @param a_bytes Private key a as bytes

@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Enhanced Stealth Scheme Demo</title>
+  <title>Interactive Stealth Scheme Demo</title>
   <style>
     * {
       margin: 0;
@@ -18,7 +18,7 @@
     }
     
     .container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       background: rgba(255, 255, 255, 0.95);
       border-radius: 20px;
@@ -52,7 +52,7 @@
     }
     
     .section:hover {
-      transform: translateY(-5px);
+      transform: translateY(-2px);
     }
     
     .section h3 {
@@ -97,7 +97,7 @@
       white-space: pre-wrap;
       font-family: 'Courier New', monospace;
       font-size: 0.9em;
-      max-height: 200px;
+      max-height: 300px;
       overflow-y: auto;
     }
     
@@ -112,7 +112,7 @@
       color: #dc3545;
     }
     
-    input[type=text], select {
+    select, input[type=text], input[type=number] {
       width: 100%;
       padding: 10px;
       border: 2px solid #ddd;
@@ -122,16 +122,22 @@
       transition: border-color 0.3s ease;
     }
     
-    input[type=text]:focus, select:focus {
+    select:focus, input[type=text]:focus, input[type=number]:focus {
       outline: none;
       border-color: #667eea;
     }
     
     .controls {
       display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .inline-controls {
+      display: flex;
       gap: 10px;
       align-items: center;
-      margin-bottom: 15px;
     }
     
     .status-indicator {
@@ -154,36 +160,47 @@
       100% { opacity: 1; }
     }
     
-    .performance-section {
+    .wide-section {
       grid-column: 1 / -1;
-      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     }
     
-    .perf-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
+    .data-list {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      margin: 10px 0;
     }
     
-    .perf-card {
-      background: white;
-      padding: 15px;
-      border-radius: 10px;
-      text-align: center;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    .data-item {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
     }
     
-    .perf-card h4 {
-      color: #333;
-      margin-bottom: 10px;
-      font-size: 0.9em;
+    .data-item:hover {
+      background-color: #f0f0f0;
     }
     
-    .perf-value {
-      font-size: 1.5em;
+    .data-item:last-child {
+      border-bottom: none;
+    }
+    
+    .data-item.selected {
+      background-color: #e3f2fd;
+      border-left: 4px solid #667eea;
+    }
+    
+    .item-header {
       font-weight: bold;
-      color: #667eea;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    
+    .item-details {
+      font-size: 0.9em;
+      color: #666;
     }
     
     .loading {
@@ -202,90 +219,56 @@
       100% { transform: rotate(360deg); }
     }
     
-    .workflow {
-      grid-column: 1 / -1;
-      background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    .hex-display {
+      font-family: 'Courier New', monospace;
+      font-size: 0.8em;
+      color: #666;
+      word-break: break-all;
     }
     
-    .workflow-steps {
+    .tabs {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 15px;
+      border-bottom: 2px solid #ddd;
+      margin-bottom: 20px;
     }
     
-    .step {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 10px;
-      border-radius: 10px;
-      background: white;
-      min-width: 100px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
     }
     
-    .step.active {
-      background: #667eea;
-      color: white;
-    }
-    
-    .step-number {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: #ddd;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-    
-    .step.active .step-number {
-      background: white;
+    .tab.active {
+      border-bottom-color: #667eea;
       color: #667eea;
+      font-weight: bold;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔐 Enhanced Stealth Scheme Demo</h1>
+    <h1>🔐 Interactive Stealth Scheme Demo</h1>
     
     <div class="grid">
-      <!-- Workflow Section -->
-      <div class="section workflow">
-        <h3>📋 Workflow Progress</h3>
-        <div class="workflow-steps">
-          <div class="step" id="step-setup">
-            <div class="step-number">1</div>
-            <span>Setup</span>
-          </div>
-          <div class="step" id="step-keygen">
-            <div class="step-number">2</div>
-            <span>KeyGen</span>
-          </div>
-          <div class="step" id="step-addr">
-            <div class="step-number">3</div>
-            <span>Address</span>
-          </div>
-          <div class="step" id="step-sign">
-            <div class="step-number">4</div>
-            <span>Sign</span>
-          </div>
-          <div class="step" id="step-verify">
-            <div class="step-number">5</div>
-            <span>Verify</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Setup Section -->
+      <!-- Setup Section with Parameter Selection -->
       <div class="section">
         <h3>🔧 System Setup</h3>
         <div class="controls">
           <span class="status-indicator" id="setup-status"></span>
-          <button onclick="callSetup()" id="setup-btn">Initialize Trace Key</button>
+          <label>Select Parameter File:</label>
+          <select id="param-select">
+            <option value="">Loading parameter files...</option>
+          </select>
+          <button onclick="callSetup()" id="setup-btn">Initialize with Selected Param</button>
         </div>
         <div class="output" id="output-setup"></div>
       </div>
@@ -297,9 +280,7 @@
           <button onclick="callKeyGen()" id="keygen-btn">Generate New Key</button>
           <button onclick="loadKeyList()">Refresh Key List</button>
         </div>
-        <select id="key-select" onchange="updateSelectedKey()">
-          <option value="">Select a key...</option>
-        </select>
+        <div class="data-list" id="key-list"></div>
         <div class="output" id="output-keygen"></div>
       </div>
 
@@ -307,55 +288,97 @@
       <div class="section">
         <h3>📧 Address Generation</h3>
         <div class="controls">
-          <span class="status-indicator" id="addr-status"></span>
+          <label>Select Key for Address Generation:</label>
+          <select id="addr-key-select">
+            <option value="">Select a key...</option>
+          </select>
           <button onclick="callAddrGen()" id="addr-btn">Generate Address</button>
-          <button onclick="callAddrVerify()" id="verify-btn">Verify Address</button>
         </div>
+        <div class="data-list" id="address-list"></div>
         <div class="output" id="output-addr"></div>
       </div>
 
-      <!-- Transaction Section -->
+      <!-- Address Verification Section -->
       <div class="section">
-        <h3>✍️ Transaction Signing</h3>
-        <input type="text" id="message-input" placeholder="Enter message to sign..." value="Test transaction message">
+        <h3>🔍 Address Verification</h3>
         <div class="controls">
-          <button onclick="callSign()" id="sign-btn">Sign Message</button>
-          <button onclick="callVerifySignature()" id="verify-sig-btn">Verify Signature</button>
-          <button onclick="callTrace()" id="trace-btn">Trace Identity</button>
+          <label>Select Address to Verify:</label>
+          <select id="verify-addr-select">
+            <option value="">Select an address...</option>
+          </select>
+          <label>Select Key for Verification:</label>
+          <select id="verify-key-select">
+            <option value="">Select a key...</option>
+          </select>
+          <button onclick="callAddrVerify()" id="verify-btn">Verify Address</button>
         </div>
-        <div class="output" id="output-transaction"></div>
+        <div class="output" id="output-verify"></div>
       </div>
 
-      <!-- Performance Monitoring -->
-      <div class="section performance-section">
-        <h3>📊 Performance Monitoring</h3>
-        <button onclick="runPerformanceTest()" id="perf-btn">Run Performance Test (100 iterations)</button>
-        <div class="perf-grid" id="perf-results">
-          <div class="perf-card">
-            <h4>Address Generation</h4>
-            <div class="perf-value" id="perf-addr">-</div>
+      <!-- DSK Generation Section -->
+      <div class="section">
+        <h3>🔐 DSK Generation</h3>
+        <div class="controls">
+          <label>Select Address:</label>
+          <select id="dsk-addr-select">
+            <option value="">Select an address...</option>
+          </select>
+          <label>Select Owner Key:</label>
+          <select id="dsk-key-select">
+            <option value="">Select a key...</option>
+          </select>
+          <button onclick="callDSKGen()" id="dsk-btn">Generate DSK</button>
+        </div>
+        <div class="data-list" id="dsk-list"></div>
+        <div class="output" id="output-dsk"></div>
+      </div>
+
+      <!-- Signing Section -->
+      <div class="section">
+        <h3>✍️ Message Signing</h3>
+        <div class="controls">
+          <input type="text" id="message-input" placeholder="Enter message to sign..." value="Test transaction message">
+          <label>Select DSK for Signing:</label>
+          <select id="sign-dsk-select">
+            <option value="">Select a DSK...</option>
+          </select>
+          <button onclick="callSign()" id="sign-btn">Sign Message</button>
+        </div>
+        <div class="output" id="output-sign"></div>
+      </div>
+
+      <!-- Signature Verification Section -->
+      <div class="section wide-section">
+        <h3>✅ Signature Verification</h3>
+        <div class="controls">
+          <div class="inline-controls">
+            <input type="text" id="verify-message-input" placeholder="Message to verify..." value="Test transaction message">
+            <select id="verify-addr-for-sig-select">
+              <option value="">Select address...</option>
+            </select>
+            <button onclick="callVerifySignature()" id="verify-sig-btn">Verify Signature</button>
           </div>
-          <div class="perf-card">
-            <h4>Address Verification</h4>
-            <div class="perf-value" id="perf-verify">-</div>
-          </div>
-          <div class="perf-card">
-            <h4>Fast Verification</h4>
-            <div class="perf-value" id="perf-fast-verify">-</div>
-          </div>
-          <div class="perf-card">
-            <h4>Signing</h4>
-            <div class="perf-value" id="perf-sign">-</div>
-          </div>
-          <div class="perf-card">
-            <h4>Signature Verification</h4>
-            <div class="perf-value" id="perf-sig-verify">-</div>
-          </div>
-          <div class="perf-card">
-            <h4>Identity Tracing</h4>
-            <div class="perf-value" id="perf-trace">-</div>
+          <div class="inline-controls">
+            <input type="text" id="q-sigma-input" placeholder="Q_sigma (signature component)...">
+            <input type="text" id="h-input" placeholder="H (hash component)...">
           </div>
         </div>
+        <div class="output" id="output-verify-sig"></div>
+      </div>
+
+      <!-- Identity Tracing Section -->
+      <div class="section wide-section">
+        <h3>🔍 Identity Tracing</h3>
+        <div class="controls">
+          <div class="inline-controls">
+            <label>Select Address to Trace:</label>
+            <select id="trace-addr-select">
+              <option value="">Select an address...</option>
+            </select>
+            <button onclick="callTrace()" id="trace-btn">Trace Identity</button>
+          </div>
+        </div>
+        <div class="output" id="output-trace"></div>
       </div>
     </div>
   </div>
@@ -363,35 +386,29 @@
   <script>
     let state = {
       keys: [],
+      addresses: [],
+      dsks: [],
       traceKey: null,
       selectedKeyIndex: -1,
-      currentAddress: null,
-      currentSignature: null,
+      selectedAddrIndex: -1,
+      selectedDSKIndex: -1,
       setupComplete: false,
-      keyGenComplete: false,
-      addrGenComplete: false
+      currentParamFile: null
     };
 
     // Utility functions
     function showLoading(buttonId) {
       const btn = document.getElementById(buttonId);
       btn.disabled = true;
-      btn.innerHTML = '<span class="loading"></span>' + btn.textContent;
+      const originalText = btn.textContent;
+      btn.innerHTML = '<span class="loading"></span>' + originalText;
+      return originalText;
     }
 
     function hideLoading(buttonId, originalText) {
       const btn = document.getElementById(buttonId);
       btn.disabled = false;
       btn.innerHTML = originalText;
-    }
-
-    function updateWorkflowStep(stepId, active = false) {
-      const step = document.getElementById(stepId);
-      if (active) {
-        step.classList.add('active');
-      } else {
-        step.classList.remove('active');
-      }
     }
 
     function updateStatusIndicator(indicatorId, active = false) {
@@ -409,29 +426,81 @@
       output.className = 'output ' + (isError ? 'error' : 'success');
     }
 
+    function truncateHex(hex, length = 16) {
+      if (!hex) return '';
+      if (hex.length <= length * 2) return hex;
+      return hex.substring(0, length) + '...' + hex.substring(hex.length - 8);
+    }
+
+    // Load parameter files on startup
+    async function loadParamFiles() {
+      try {
+        const res = await fetch('/param_files');
+        if (!res.ok) throw new Error('Failed to load parameter files');
+        
+        const data = await res.json();
+        const select = document.getElementById('param-select');
+        
+        select.innerHTML = '<option value="">Select a parameter file...</option>';
+        
+        data.param_files.forEach(file => {
+          const option = document.createElement('option');
+          option.value = file.name;
+          option.textContent = `${file.name} (${file.size} bytes)`;
+          select.appendChild(option);
+        });
+        
+        if (data.current) {
+          select.value = data.current;
+          state.currentParamFile = data.current;
+        }
+        
+      } catch (error) {
+        displayOutput('output-setup', 'Error loading parameter files: ' + error.message, true);
+      }
+    }
+
     // API calls
     async function callSetup() {
-      showLoading('setup-btn');
+      const originalText = showLoading('setup-btn');
       try {
-        const res = await fetch('/setup');
+        const paramFile = document.getElementById('param-select').value;
+        if (!paramFile) {
+          throw new Error('Please select a parameter file');
+        }
+        
+        const res = await fetch('/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ param_file: paramFile })
+        });
+        
         if (!res.ok) throw new Error('Setup failed');
         
         const data = await res.json();
         state.traceKey = data;
         state.setupComplete = true;
+        state.currentParamFile = paramFile;
         
-        updateWorkflowStep('step-setup', true);
         updateStatusIndicator('setup-status', true);
-        displayOutput('output-setup', `<strong>🔧 System Initialized Successfully!</strong>
-🔑 Trace Key: ${data.TK_hex.substring(0, 16)}...${data.TK_hex.substring(data.TK_hex.length-8)}
-🔐 K Value: ${data.k_hex.substring(0, 16)}...${data.k_hex.substring(data.k_hex.length-8)}
-📊 Status: ${data.status}
-💡 Message: ${data.message}`);
+        displayOutput('output-setup', `✅ System Initialized Successfully!
+📄 Parameter File: ${paramFile}
+🔑 Trace Key: ${truncateHex(data.TK_hex)}
+🔐 K Value: ${truncateHex(data.k_hex)}
+📊 G1 Size: ${data.g1_size} bytes
+📊 Zr Size: ${data.zr_size} bytes
+✅ Status: ${data.status}`);
+        
+        // Reset all lists
+        state.keys = [];
+        state.addresses = [];
+        state.dsks = [];
+        updateAllLists();
         
       } catch (error) {
         displayOutput('output-setup', 'Error: ' + error.message, true);
       }
-      hideLoading('setup-btn', 'Initialize Trace Key');
+      hideLoading('setup-btn', originalText);
     }
 
     async function callKeyGen() {
@@ -440,27 +509,26 @@
         return;
       }
       
-      showLoading('keygen-btn');
+      const originalText = showLoading('keygen-btn');
       try {
         const res = await fetch('/keygen');
         if (!res.ok) throw new Error('KeyGen failed');
         
         const data = await res.json();
         state.keys.push(data);
-        state.keyGenComplete = true;
         
-        updateWorkflowStep('step-keygen', true);
-        updateKeyDropdown();
-        
-        // Auto-select the newly generated key
-        state.selectedKeyIndex = state.keys.length - 1;
-        document.getElementById('key-select').selectedIndex = state.selectedKeyIndex + 1;
-        updateSelectedKeyDisplay();
+        updateAllLists();
+        displayOutput('output-keygen', `✅ Key Generated Successfully!
+🆔 Key ID: ${data.id}
+🔓 Public Key A: ${truncateHex(data.A_hex)}
+🔓 Public Key B: ${truncateHex(data.B_hex)}
+🔐 Private Key a: ${truncateHex(data.a_hex)}
+🔐 Private Key b: ${truncateHex(data.b_hex)}`);
         
       } catch (error) {
         displayOutput('output-keygen', 'Error: ' + error.message, true);
       }
-      hideLoading('keygen-btn', 'Generate New Key');
+      hideLoading('keygen-btn', originalText);
     }
 
     async function loadKeyList() {
@@ -468,273 +536,348 @@
         const res = await fetch('/keylist');
         if (!res.ok) throw new Error('Failed to load keys');
         
-        const list = await res.json();
-        state.keys = list;
-        updateKeyDropdown();
+        state.keys = await res.json();
+        updateAllLists();
         
       } catch (error) {
         displayOutput('output-keygen', 'Error loading keys: ' + error.message, true);
       }
     }
 
-    function updateKeyDropdown() {
-      const sel = document.getElementById('key-select');
-      sel.innerHTML = '<option value="">Select a key...</option>';
-      state.keys.forEach((k, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.text = `Key ${i} (A: ${k.A_hex.substring(0, 8)}..., B: ${k.B_hex.substring(0, 8)}...)`;
-        sel.appendChild(opt);
-      });
-      
-      if (state.selectedKeyIndex >= 0) {
-        updateSelectedKeyDisplay();
-      }
-    }
-
-    function updateSelectedKey() {
-      const sel = document.getElementById('key-select');
-      state.selectedKeyIndex = sel.value === "" ? -1 : parseInt(sel.value);
-      updateSelectedKeyDisplay();
-    }
-
-    function updateSelectedKeyDisplay() {
-      const outputDiv = document.getElementById('output-keygen');
-      if (state.selectedKeyIndex >= 0 && state.selectedKeyIndex < state.keys.length) {
-        const key = state.keys[state.selectedKeyIndex];
-        outputDiv.innerHTML = `<strong>🔑 Selected Key ${state.selectedKeyIndex}:</strong>
-📋 Index: ${key.index}
-🔓 Public Key A: ${key.A_hex.substring(0, 16)}...${key.A_hex.substring(key.A_hex.length-8)}
-🔓 Public Key B: ${key.B_hex.substring(0, 16)}...${key.B_hex.substring(key.B_hex.length-8)}
-🔐 Private Key a: ${key.a_hex.substring(0, 16)}...${key.a_hex.substring(key.a_hex.length-8)}
-🔐 Private Key b: ${key.b_hex.substring(0, 16)}...${key.b_hex.substring(key.b_hex.length-8)}
-✅ Status: ${key.status || 'Ready'}`;
-        outputDiv.className = 'output success';
-      } else {
-        outputDiv.innerHTML = 'No key selected';
-        outputDiv.className = 'output';
-      }
-    }
-
     async function callAddrGen() {
-      if (!state.setupComplete || !state.keyGenComplete || state.selectedKeyIndex === -1) {
-        alert("Please complete Setup, KeyGen, and select a key first!");
+      if (!state.setupComplete) {
+        alert("Please run Setup first!");
         return;
       }
       
-      showLoading('addr-btn');
+      const keyIndex = parseInt(document.getElementById('addr-key-select').value);
+      if (isNaN(keyIndex)) {
+        alert("Please select a key!");
+        return;
+      }
+      
+      const originalText = showLoading('addr-btn');
       try {
-        const key = state.keys[state.selectedKeyIndex];
         const res = await fetch('/addrgen', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ A_hex: key.A_hex, B_hex: key.B_hex })
+          body: JSON.stringify({ key_index: keyIndex })
         });
         
         if (!res.ok) throw new Error('Address generation failed');
         
         const data = await res.json();
-        state.currentAddress = {...data, usedKeyIndex: state.selectedKeyIndex};
-        state.addrGenComplete = true;
+        state.addresses.push(data);
         
-        updateWorkflowStep('step-addr', true);
-        updateStatusIndicator('addr-status', true);
-        displayOutput('output-addr', `<strong>📧 Generated Address (using Key ${state.selectedKeyIndex}):</strong>
-🏠 Address: ${data.addr_hex.substring(0, 16)}...${data.addr_hex.substring(data.addr_hex.length-8)}
-🎲 R1: ${data.r1_hex.substring(0, 16)}...${data.r1_hex.substring(data.r1_hex.length-8)}
-🎲 R2: ${data.r2_hex.substring(0, 16)}...${data.r2_hex.substring(data.r2_hex.length-8)}
-🔒 C: ${data.c_hex.substring(0, 16)}...${data.c_hex.substring(data.c_hex.length-8)}
-✅ Status: ${data.status || 'Generated'}`);
+        updateAllLists();
+        displayOutput('output-addr', `✅ Address Generated Successfully!
+🆔 Address ID: ${data.id}
+👤 Owner Key: ${data.key_id}
+🏠 Address: ${truncateHex(data.addr_hex)}
+🎲 R1: ${truncateHex(data.r1_hex)}
+🎲 R2: ${truncateHex(data.r2_hex)}
+🔒 C: ${truncateHex(data.c_hex)}`);
         
       } catch (error) {
         displayOutput('output-addr', 'Error: ' + error.message, true);
       }
-      hideLoading('addr-btn', 'Generate Address');
+      hideLoading('addr-btn', originalText);
     }
 
     async function callAddrVerify() {
-      if (!state.currentAddress) {
-        alert("Please generate an address first!");
+      const addrIndex = parseInt(document.getElementById('verify-addr-select').value);
+      const keyIndex = parseInt(document.getElementById('verify-key-select').value);
+      
+      if (isNaN(addrIndex) || isNaN(keyIndex)) {
+        alert("Please select both an address and a key!");
         return;
       }
       
-      showLoading('verify-btn');
+      const originalText = showLoading('verify-btn');
       try {
-        const key = state.keys[state.currentAddress.usedKeyIndex];
         const res = await fetch('/verify_addr', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: state.currentAddress,
-            key: key
+          body: JSON.stringify({ 
+            address_index: addrIndex,
+            key_index: keyIndex
           })
         });
         
         if (!res.ok) throw new Error('Address verification failed');
         
         const data = await res.json();
-        const currentOutput = document.getElementById('output-addr').innerHTML;
-        displayOutput('output-addr', currentOutput + `
-
-<strong>🔍 Verification Results:</strong>
-✓ Regular Verification: ${data.regular_verification ? '✅ Valid' : '❌ Invalid'}
-⚡ Fast Verification: ${data.fast_verification ? '✅ Valid' : '❌ Invalid'}
-🎯 Results Match: ${data.both_match ? '✅ Yes' : '❌ No'}
-📊 Overall Status: ${data.status}`);
+        displayOutput('output-verify', `🔍 Address Verification Results:
+📧 Address: ${data.address_id}
+🔑 Key Used: ${data.key_id}
+👤 Is Owner: ${data.is_owner ? '✅ Yes' : '❌ No'}
+✅ Verification Result: ${data.valid ? '✅ Valid' : '❌ Invalid'}
+📊 Status: ${data.status}`);
         
       } catch (error) {
-        displayOutput('output-addr', 'Verification Error: ' + error.message, true);
+        displayOutput('output-verify', 'Error: ' + error.message, true);
       }
-      hideLoading('verify-btn', 'Verify Address');
+      hideLoading('verify-btn', originalText);
     }
 
-    async function callSign() {
-      if (!state.addrGenComplete) {
-        alert("Please generate an address first!");
+    async function callDSKGen() {
+      const addrIndex = parseInt(document.getElementById('dsk-addr-select').value);
+      const keyIndex = parseInt(document.getElementById('dsk-key-select').value);
+      
+      if (isNaN(addrIndex) || isNaN(keyIndex)) {
+        alert("Please select both an address and a key!");
         return;
       }
       
+      const originalText = showLoading('dsk-btn');
+      try {
+        const res = await fetch('/dskgen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            address_index: addrIndex,
+            key_index: keyIndex
+          })
+        });
+        
+        if (!res.ok) throw new Error('DSK generation failed');
+        
+        const data = await res.json();
+        state.dsks.push(data);
+        
+        updateAllLists();
+        displayOutput('output-dsk', `✅ DSK Generated Successfully!
+🆔 DSK ID: ${data.id}
+🔐 DSK: ${truncateHex(data.dsk_hex)}
+📧 For Address: ${data.address_id}
+👤 Owner Key: ${data.key_id}
+🏠 Address: ${truncateHex(data.for_address)}`);
+        
+      } catch (error) {
+        displayOutput('output-dsk', 'Error: ' + error.message, true);
+      }
+      hideLoading('dsk-btn', originalText);
+    }
+
+    async function callSign() {
       const message = document.getElementById('message-input').value;
+      const dskIndex = parseInt(document.getElementById('sign-dsk-select').value);
+      
       if (!message.trim()) {
         alert("Please enter a message to sign!");
         return;
       }
       
-      showLoading('sign-btn');
+      if (isNaN(dskIndex)) {
+        alert("Please select a DSK!");
+        return;
+      }
+      
+      const originalText = showLoading('sign-btn');
       try {
-        const key = state.keys[state.currentAddress.usedKeyIndex];
         const res = await fetch('/sign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: message,
-            address: state.currentAddress,
-            key: key
+            dsk_index: dskIndex
           })
         });
         
         if (!res.ok) throw new Error('Signing failed');
         
         const data = await res.json();
-        state.currentSignature = {...data, signedAddress: state.currentAddress.addr_hex, usedKeyIndex: state.currentAddress.usedKeyIndex};
         
-        updateWorkflowStep('step-sign', true);
-        displayOutput('output-transaction', `<strong>✍️ Message Signed (using Key ${state.currentAddress.usedKeyIndex}):</strong>
+        // Auto-fill verification fields
+        document.getElementById('verify-message-input').value = message;
+        document.getElementById('q-sigma-input').value = data.q_sigma_hex;
+        document.getElementById('h-input').value = data.h_hex;
+        document.getElementById('verify-addr-for-sig-select').value = data.address_index;
+        
+        displayOutput('output-sign', `✅ Message Signed Successfully!
 📝 Message: "${message}"
-🏠 Address: ${state.currentAddress.addr_hex.substring(0, 16)}...${state.currentAddress.addr_hex.substring(state.currentAddress.addr_hex.length-8)}
-🔏 Signature Q: ${data.q_sigma_hex.substring(0, 16)}...${data.q_sigma_hex.substring(data.q_sigma_hex.length-8)}
-🔑 Hash H: ${data.h_hex.substring(0, 16)}...${data.h_hex.substring(data.h_hex.length-8)}
-🔐 One-time SK: ${data.dsk_hex.substring(0, 16)}...${data.dsk_hex.substring(data.dsk_hex.length-8)}
-✅ Status: ${data.status || 'Signed'}`);
+🔐 DSK Used: ${data.dsk_id}
+📧 Address: ${data.address_id}
+🔏 Q_sigma: ${truncateHex(data.q_sigma_hex)}
+🔑 H: ${truncateHex(data.h_hex)}`);
         
       } catch (error) {
-        displayOutput('output-transaction', 'Signing Error: ' + error.message, true);
+        displayOutput('output-sign', 'Error: ' + error.message, true);
       }
-      hideLoading('sign-btn', 'Sign Message');
+      hideLoading('sign-btn', originalText);
     }
 
     async function callVerifySignature() {
-      if (!state.currentSignature) {
-        alert("Please sign a message first!");
+      const message = document.getElementById('verify-message-input').value;
+      const qSigma = document.getElementById('q-sigma-input').value;
+      const h = document.getElementById('h-input').value;
+      const addrIndex = parseInt(document.getElementById('verify-addr-for-sig-select').value);
+      
+      if (!message.trim() || !qSigma.trim() || !h.trim() || isNaN(addrIndex)) {
+        alert("Please fill in all fields!");
         return;
       }
       
-      showLoading('verify-sig-btn');
+      const originalText = showLoading('verify-sig-btn');
       try {
-        const message = document.getElementById('message-input').value;
         const res = await fetch('/verify_signature', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: message,
-            signature: state.currentSignature,
-            address: state.currentAddress
+            q_sigma_hex: qSigma,
+            h_hex: h,
+            address_index: addrIndex
           })
         });
         
         if (!res.ok) throw new Error('Signature verification failed');
         
         const data = await res.json();
-        updateWorkflowStep('step-verify', true);
-        
-        const currentOutput = document.getElementById('output-transaction').innerHTML;
-        displayOutput('output-transaction', currentOutput + `
-
-<strong>🔍 Signature Verification:</strong>
-📝 Verified Message: "${message}"
-🏠 Against Address: ${state.currentSignature.signedAddress.substring(0, 16)}...${state.currentSignature.signedAddress.substring(state.currentSignature.signedAddress.length-8)}
-✓ Verification Result: ${data.valid ? '✅ Valid Signature' : '❌ Invalid Signature'}
+        displayOutput('output-verify-sig', `🔍 Signature Verification Results:
+📝 Message: "${message}"
+📧 Address: ${data.address_id}
+✅ Verification Result: ${data.valid ? '✅ Valid Signature' : '❌ Invalid Signature'}
 📊 Status: ${data.status}`);
         
       } catch (error) {
-        displayOutput('output-transaction', 'Verification Error: ' + error.message, true);
+        displayOutput('output-verify-sig', 'Error: ' + error.message, true);
       }
-      hideLoading('verify-sig-btn', 'Verify Signature');
+      hideLoading('verify-sig-btn', originalText);
     }
 
     async function callTrace() {
-      if (!state.currentAddress) {
-        alert("Please generate an address first!");
+      const addrIndex = parseInt(document.getElementById('trace-addr-select').value);
+      
+      if (isNaN(addrIndex)) {
+        alert("Please select an address to trace!");
         return;
       }
       
-      showLoading('trace-btn');
+      const originalText = showLoading('trace-btn');
       try {
         const res = await fetch('/trace', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            address: state.currentAddress
-          })
+          body: JSON.stringify({ address_index: addrIndex })
         });
         
         if (!res.ok) throw new Error('Identity tracing failed');
         
         const data = await res.json();
-        const currentOutput = document.getElementById('output-transaction').innerHTML;
-        displayOutput('output-transaction', currentOutput + `
-
-<strong>🔍 Identity Tracing Results:</strong>
-🏠 Traced Address: ${state.currentAddress.addr_hex.substring(0, 16)}...${state.currentAddress.addr_hex.substring(state.currentAddress.addr_hex.length-8)}
-🔍 Recovered B: ${data.recovered_b_hex.substring(0, 16)}...${data.recovered_b_hex.substring(data.recovered_b_hex.length-8)}
-🎯 Original Key B: ${state.keys[state.currentAddress.usedKeyIndex].B_hex.substring(0, 16)}...${state.keys[state.currentAddress.usedKeyIndex].B_hex.substring(state.keys[state.currentAddress.usedKeyIndex].B_hex.length-8)}
-✓ Match Result: ${data.recovered_b_hex === state.keys[state.currentAddress.usedKeyIndex].B_hex ? '✅ Perfect Match!' : '⚠️ Different (expected for dummy data)'}
+        displayOutput('output-trace', `🔍 Identity Tracing Results:
+📧 Traced Address: ${data.address_id}
+🔍 Recovered B: ${truncateHex(data.recovered_b_hex)}
+👤 Original Owner: ${data.original_owner.key_id}
+🔑 Original B: ${truncateHex(data.original_owner.B_hex)}
+🎯 Perfect Match: ${data.perfect_match ? '✅ Yes' : '❌ No'}
+${data.matched_key ? `✅ Matched Key: ${data.matched_key.id}` : '⚠️ No exact match found'}
 📊 Status: ${data.status}`);
         
       } catch (error) {
-        displayOutput('output-transaction', 'Tracing Error: ' + error.message, true);
+        displayOutput('output-trace', 'Error: ' + error.message, true);
       }
-      hideLoading('trace-btn', 'Trace Identity');
+      hideLoading('trace-btn', originalText);
     }
 
-    async function runPerformanceTest() {
-      showLoading('perf-btn');
-      try {
-        const res = await fetch('/performance_test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ iterations: 100 })
+    // Update all dropdown lists and data displays
+    function updateAllLists() {
+      updateKeySelects();
+      updateAddressSelects();
+      updateDSKSelects();
+      updateDataLists();
+    }
+
+    function updateKeySelects() {
+      const selects = ['addr-key-select', 'verify-key-select', 'dsk-key-select'];
+      
+      selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">Select a key...</option>';
+        
+        state.keys.forEach((key, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.textContent = `${key.id} - A: ${truncateHex(key.A_hex, 8)}`;
+          select.appendChild(option);
         });
+      });
+    }
+
+    function updateAddressSelects() {
+      const selects = ['verify-addr-select', 'dsk-addr-select', 'trace-addr-select', 'verify-addr-for-sig-select'];
+      
+      selects.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        select.innerHTML = '<option value="">Select an address...</option>';
         
-        if (!res.ok) throw new Error('Performance test failed');
-        
-        const data = await res.json();
-        
-        document.getElementById('perf-addr').textContent = data.addr_gen_ms.toFixed(3) + ' ms';
-        document.getElementById('perf-verify').textContent = data.addr_verify_ms.toFixed(3) + ' ms';
-        document.getElementById('perf-fast-verify').textContent = data.fast_verify_ms.toFixed(3) + ' ms';
-        document.getElementById('perf-sign').textContent = data.sign_ms.toFixed(3) + ' ms';
-        document.getElementById('perf-sig-verify').textContent = data.sig_verify_ms.toFixed(3) + ' ms';
-        document.getElementById('perf-trace').textContent = data.trace_ms.toFixed(3) + ' ms';
-        
-      } catch (error) {
-        alert('Performance test error: ' + error.message);
-      }
-      hideLoading('perf-btn', 'Run Performance Test (100 iterations)');
+        state.addresses.forEach((addr, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.textContent = `${addr.id} - Owner: ${addr.key_id}`;
+          select.appendChild(option);
+        });
+      });
+    }
+
+    function updateDSKSelects() {
+      const select = document.getElementById('sign-dsk-select');
+      select.innerHTML = '<option value="">Select a DSK...</option>';
+      
+      state.dsks.forEach((dsk, index) => {
+        const option = document.createElement('option');
+        option.value = index;
+        option.textContent = `${dsk.id} - For: ${dsk.address_id}`;
+        select.appendChild(option);
+      });
+    }
+
+    function updateDataLists() {
+      // Update key list
+      const keyList = document.getElementById('key-list');
+      keyList.innerHTML = '';
+      state.keys.forEach((key, index) => {
+        const item = document.createElement('div');
+        item.className = 'data-item';
+        item.innerHTML = `
+          <div class="item-header">${key.id}</div>
+          <div class="item-details">A: ${truncateHex(key.A_hex, 12)}</div>
+          <div class="item-details">B: ${truncateHex(key.B_hex, 12)}</div>
+        `;
+        keyList.appendChild(item);
+      });
+      
+      // Update address list
+      const addrList = document.getElementById('address-list');
+      addrList.innerHTML = '';
+      state.addresses.forEach((addr, index) => {
+        const item = document.createElement('div');
+        item.className = 'data-item';
+        item.innerHTML = `
+          <div class="item-header">${addr.id} (Owner: ${addr.key_id})</div>
+          <div class="item-details hex-display">${truncateHex(addr.addr_hex, 20)}</div>
+        `;
+        addrList.appendChild(item);
+      });
+      
+      // Update DSK list
+      const dskList = document.getElementById('dsk-list');
+      dskList.innerHTML = '';
+      state.dsks.forEach((dsk, index) => {
+        const item = document.createElement('div');
+        item.className = 'data-item';
+        item.innerHTML = `
+          <div class="item-header">${dsk.id}</div>
+          <div class="item-details">For: ${dsk.address_id} (Owner: ${dsk.key_id})</div>
+          <div class="item-details hex-display">${truncateHex(dsk.dsk_hex, 16)}</div>
+        `;
+        dskList.appendChild(item);
+      });
     }
 
     // Initialize page
     window.onload = function () {
+      loadParamFiles();
       loadKeyList();
     };
   </script>
