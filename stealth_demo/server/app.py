@@ -793,9 +793,13 @@ def reset_system():
         system_initialized = False
         current_param_file = None
         
+        print("🧹 All backend data cleared")  # 添加日志
+        
         return jsonify({
             "status": "reset complete",
-            "message": "All system state has been reset"
+            "message": "All system state has been reset",
+            "keys_count": len(key_list),
+            "addresses_count": len(address_list)
         })
     except Exception as e:
         raise e
