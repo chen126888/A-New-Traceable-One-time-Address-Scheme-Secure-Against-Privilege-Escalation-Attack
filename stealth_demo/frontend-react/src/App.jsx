@@ -1,34 +1,64 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useEffect } from 'react'
+import SystemSetup from './components/SystemSetup'
+import KeyManagement from './components/KeyManagement'
+import AddressGeneration from './components/AddressGeneration'
+import { apiService } from './services/apiService'
+
+function Header() {
+  return (
+    <h1 className="header">
+      🔐 Interactive Stealth Scheme Demo
+    </h1>
+  )
+}
+
+function AddressVerification() {
+  return (
+    <div className="section">
+      <h3 className="section-title">🔍 Address Verification</h3>
+      <p>Address verification component will be here</p>
+    </div>
+  )
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  useEffect(() => {
+    const resetEverything = async () => {
+      try {
+        // 強制重置後端
+        await apiService.resetSystem()
+        
+        // 延遲一點讓重置完成
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        console.log('✅ Backend reset completed')
+        
+        // 強制清除瀏覽器可能的緩存
+        if (window.performance && window.performance.navigation.type === window.performance.navigation.TYPE_RELOAD) {
+          console.log('🔄 Page refreshed - data should be clean')
+        }
+        
+      } catch (err) {
+        console.log('⚠️ Reset failed:', err.message)
+      }
+    }
+
+    resetEverything()
+  }, [])
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="app">
+      <div className="container">
+        <Header />
+        
+        <div className="grid">
+          <SystemSetup />
+          <KeyManagement />
+          <AddressGeneration />
+          <AddressVerification />
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   )
 }
 
