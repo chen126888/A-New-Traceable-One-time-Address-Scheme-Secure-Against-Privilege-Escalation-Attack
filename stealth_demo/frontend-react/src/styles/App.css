@@ -14,7 +14,7 @@
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
@@ -109,6 +109,7 @@
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 /* Button */
@@ -147,6 +148,10 @@
 
 .button.secondary:hover:not(:disabled) {
   background: #5a6268;
+}
+
+.button.loading {
+  pointer-events: none;
 }
 
 /* Loading Spinner */
@@ -202,7 +207,7 @@ label {
   white-space: pre-wrap;
   font-family: 'Courier New', monospace;
   font-size: 0.9em;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
   word-wrap: break-word;
   word-break: break-all;
@@ -271,7 +276,7 @@ label {
   line-height: 1.4;
 }
 
-/* Performance Test */
+/* Performance Test Specific Styles */
 .performance-section {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border: 2px solid #667eea;
@@ -304,6 +309,108 @@ label {
   margin-top: 5px;
 }
 
+/* DSK Generation Specific */
+.dsk-info {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+/* Message Signing Specific */
+.signing-method-info {
+  background: #d1ecf1;
+  border: 1px solid #bee5eb;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+/* Signature Verification Specific */
+.verification-status {
+  padding: 15px;
+  border-radius: 8px;
+  margin: 10px 0;
+  text-align: center;
+  font-size: 1.1em;
+  font-weight: bold;
+}
+
+.verification-status.valid {
+  background: #d4edda;
+  border: 2px solid #28a745;
+  color: #155724;
+}
+
+.verification-status.invalid {
+  background: #f8d7da;
+  border: 2px solid #dc3545;
+  color: #721c24;
+}
+
+/* Identity Tracing Specific */
+.trace-summary {
+  background: #e3f2fd;
+  border: 1px solid #2196F3;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.trace-summary strong {
+  color: #1976D2;
+}
+
+.identity-match {
+  background: #d4edda;
+  border-left: 4px solid #28a745;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.identity-no-match {
+  background: #f8d7da;
+  border-left: 4px solid #dc3545;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+/* Progress Indicators */
+.progress-indicator {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(45deg, #667eea, #764ba2);
+  animation: progress 3s ease-in-out infinite;
+}
+
+.progress-text {
+  color: #666;
+  font-size: 0.9em;
+}
+
+@keyframes progress {
+  0% { width: 0%; }
+  50% { width: 70%; }
+  100% { width: 100%; }
+}
+
 /* Transaction Message */
 .tx-message {
   background: #fff3cd;
@@ -331,7 +438,78 @@ label {
   color: #495057;
 }
 
+/* Preset Buttons */
+.preset-buttons {
+  margin: 10px 0;
+}
+
+.preset-btn {
+  margin: 2px;
+  padding: 8px 12px;
+  font-size: 0.85em;
+  min-width: auto;
+}
+
+/* Test Controls */
+.test-controls {
+  margin: 15px 0;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.test-button {
+  min-width: 180px;
+}
+
+.results-selector {
+  margin: 15px 0;
+}
+
+/* Input Validation */
+.input.invalid {
+  border-color: #dc3545;
+  background-color: #fff5f5;
+}
+
+.input.valid {
+  border-color: #28a745;
+  background-color: #f8fff9;
+}
+
+/* Tooltips */
+.tooltip {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  font-size: 0.8em;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+}
+
 /* Responsive Design */
+@media (max-width: 1400px) {
+  .container {
+    max-width: 1200px;
+  }
+}
+
 @media (max-width: 1200px) {
   .grid {
     grid-template-columns: 1fr;
@@ -340,10 +518,51 @@ label {
   .wide-section {
     grid-column: 1;
   }
+  
+  .performance-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .app {
+    padding: 10px;
+  }
+  
+  .container {
+    padding: 20px;
+  }
+  
+  .header {
+    font-size: 2em;
+  }
+  
+  .inline-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .button {
+    min-width: auto;
+    margin: 2px 0;
+  }
+  
+  .test-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .performance-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (min-width: 1600px) {
   .container {
     max-width: 1600px;
+  }
+  
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
