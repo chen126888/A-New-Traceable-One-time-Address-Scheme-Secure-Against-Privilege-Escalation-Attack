@@ -1,23 +1,33 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { Section, Button, Select, DataList, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
 
 function AddressGeneration() {
-  const { keys, addresses, addAddress, loadKeys, loading: globalLoading, error: globalError, setError } = useAppData()
+  const { 
+    keys, 
+    addresses, 
+    addAddress, 
+    loadKeys, 
+    loading: globalLoading, 
+    error: globalError, 
+    clearError 
+  } = useAppData()
+  
   const [selectedKeyIndex, setSelectedKeyIndex] = useState('')
   const [selectedAddrIndex, setSelectedAddrIndex] = useState(-1)
   const [localLoading, setLocalLoading] = useState({})
   const [localError, setLocalError] = useState('')
 
-  const handleRefreshKeys = async () => {
+  // 使用 useCallback 防止無限循環
+  const handleRefreshKeys = useCallback(async () => {
     setLocalError('')
-    setError('')
+    clearError() // 使用 clearError 而不是 setError('')
     await loadKeys()
-  }
+  }, [loadKeys, clearError])
 
-  const handleGenerateAddress = async () => {
+  const handleGenerateAddress = useCallback(async () => {
     if (selectedKeyIndex === '') {
       setLocalError('Please select a key!')
       return
@@ -26,7 +36,7 @@ function AddressGeneration() {
     try {
       setLocalLoading(prev => ({ ...prev, addrgen: true }))
       setLocalError('')
-      setError('')
+      clearError()
       
       const newAddress = await apiService.generateAddress(parseInt(selectedKeyIndex))
       addAddress(newAddress)
@@ -36,11 +46,11 @@ function AddressGeneration() {
     } finally {
       setLocalLoading(prev => ({ ...prev, addrgen: false }))
     }
-  }
+  }, [selectedKeyIndex, addAddress, clearError])
 
-  const handleAddressClick = (index) => {
+  const handleAddressClick = useCallback((index) => {
     setSelectedAddrIndex(index)
-  }
+  }, [])
 
   const getOutputContent = () => {
     const error = localError || globalError

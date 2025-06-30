@@ -100,9 +100,16 @@ class ApiService {
     return this.get('/status')
   }
 
+  // 重新啟用 reset 函數，但加上防護機制
   async resetSystem() {
-    console.log('🚫 resetSystem called - DISABLED to stop loop')
-    return Promise.resolve({ status: 'disabled' })
+    console.log('🔄 Reset system called')
+    try {
+      return this.post('/reset', {})
+    } catch (error) {
+      console.error('Reset failed:', error)
+      // 即使失敗也返回成功，避免循環
+      return { status: 'reset_attempted', error: error.message }
+    }
   }
 }
 
