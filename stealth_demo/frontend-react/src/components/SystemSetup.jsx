@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Section, Button, Select, Output } from './common/index.jsx'
 import { apiService } from '../services/apiService'
+import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
 
 function SystemSetup() {
+  const { loadAllData, resetData } = useAppData()
   const [paramFiles, setParamFiles] = useState([])
   const [selectedParam, setSelectedParam] = useState('')
   const [loading, setLoading] = useState({})
@@ -41,9 +43,13 @@ function SystemSetup() {
       setLoading(prev => ({ ...prev, setup: true }))
       setError('')
       
+      
       const data = await apiService.setup(selectedParam)
       setTraceKey(data)
       setSetupComplete(true)
+      
+      // 設置完成後載入初始數據
+      await loadAllData()
       
     } catch (err) {
       setError('Setup failed: ' + err.message)

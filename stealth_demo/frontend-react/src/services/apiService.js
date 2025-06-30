@@ -101,7 +101,8 @@ class ApiService {
   }
 
   async resetSystem() {
-    return this.post('/reset', {})
+    console.log('🚫 resetSystem called - DISABLED to stop loop')
+    return Promise.resolve({ status: 'disabled' })
   }
 }
 

@@ -1,46 +1,35 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Section, Button, DataList, Output } from './common'
+import { useAppData } from '../hooks/useAppData'
 import { apiService } from '../services/apiService'
 import { truncateHex } from '../utils/helpers'
 
 function KeyManagement() {
-  const [keys, setKeys] = useState([])
+  const { keys, addKey, loadKeys, loading: globalLoading, error: globalError, setError } = useAppData()
   const [selectedKeyIndex, setSelectedKeyIndex] = useState(-1)
-  const [loading, setLoading] = useState({})
-  const [error, setError] = useState('')
-
-  // 載入密鑰列表
-  useEffect(() => {
-    loadKeyList()
-  }, [])
-
-  const loadKeyList = async () => {
-    try {
-      const keyData = await apiService.getKeys()
-      setKeys(keyData)
-    } catch (err) {
-      setError('Failed to load keys: ' + err.message)
-    }
-  }
+  const [localLoading, setLocalLoading] = useState({})
+  const [localError, setLocalError] = useState('')
 
   const handleGenerateKey = async () => {
     try {
-      setLoading(prev => ({ ...prev, keygen: true }))
+      setLocalLoading(prev => ({ ...prev, keygen: true }))
+      setLocalError('')
       setError('')
       
       const newKey = await apiService.generateKey()
-      setKeys(prev => [...prev, newKey])
+      addKey(newKey)
       
     } catch (err) {
-      setError('Key generation failed: ' + err.message)
+      setLocalError('Key generation failed: ' + err.message)
     } finally {
-      setLoading(prev => ({ ...prev, keygen: false }))
+      setLocalLoading(prev => ({ ...prev, keygen: false }))
     }
   }
 
   const handleRefreshKeys = async () => {
+    setLocalError('')
     setError('')
-    await loadKeyList()
+    await loadKeys()
   }
 
   const handleKeyClick = (index) => {
@@ -48,6 +37,8 @@ function KeyManagement() {
   }
 
   const getOutputContent = () => {
+    // 使用 localError 或 globalError
+    const error = localError || globalError
     if (error) {
       return `Error: ${error}`
     }
@@ -102,8 +93,8 @@ ${key.b_hex}`
       <div className="controls">
         <Button
           onClick={handleGenerateKey}
-          loading={loading.keygen}
-          disabled={loading.keygen}
+          loading={localLoading.keygen || globalLoading.keys}
+          disabled={localLoading.keygen || globalLoading.keys}
         >
           Generate New Key
         </Button>
@@ -119,7 +110,7 @@ ${key.b_hex}`
       
       <Output 
         content={getOutputContent()}
-        isError={!!error}
+        isError={!!(localError || globalError)}
       />
     </Section>
   )

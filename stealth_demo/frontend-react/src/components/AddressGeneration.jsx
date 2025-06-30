@@ -1,52 +1,40 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Section, Button, Select, DataList, Output } from './common'
 import { apiService } from '../services/apiService'
+import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
 
 function AddressGeneration() {
-  const [keys, setKeys] = useState([])
-  const [addresses, setAddresses] = useState([])
+  const { keys, addresses, addAddress, loadKeys, loading: globalLoading, error: globalError, setError } = useAppData()
   const [selectedKeyIndex, setSelectedKeyIndex] = useState('')
   const [selectedAddrIndex, setSelectedAddrIndex] = useState(-1)
-  const [loading, setLoading] = useState({})
-  const [error, setError] = useState('')
-
-  // 載入密鑰列表
-  useEffect(() => {
-    loadKeys()
-  }, [])
-
-  const loadKeys = async () => {
-    try {
-      const keyData = await apiService.getKeys()
-      setKeys(keyData)
-    } catch (err) {
-      setError('Failed to load keys: ' + err.message)
-    }
-  }
+  const [localLoading, setLocalLoading] = useState({})
+  const [localError, setLocalError] = useState('')
 
   const handleRefreshKeys = async () => {
+    setLocalError('')
     setError('')
     await loadKeys()
   }
 
   const handleGenerateAddress = async () => {
     if (selectedKeyIndex === '') {
-      setError('Please select a key!')
+      setLocalError('Please select a key!')
       return
     }
 
     try {
-      setLoading(prev => ({ ...prev, addrgen: true }))
+      setLocalLoading(prev => ({ ...prev, addrgen: true }))
+      setLocalError('')
       setError('')
       
       const newAddress = await apiService.generateAddress(parseInt(selectedKeyIndex))
-      setAddresses(prev => [...prev, newAddress])
+      addAddress(newAddress)
       
     } catch (err) {
-      setError('Address generation failed: ' + err.message)
+      setLocalError('Address generation failed: ' + err.message)
     } finally {
-      setLoading(prev => ({ ...prev, addrgen: false }))
+      setLocalLoading(prev => ({ ...prev, addrgen: false }))
     }
   }
 
@@ -55,6 +43,7 @@ function AddressGeneration() {
   }
 
   const getOutputContent = () => {
+    const error = localError || globalError
     if (error) {
       return `Error: ${error}`
     }
@@ -129,8 +118,8 @@ ${addr.c_hex}`
         
         <Button
           onClick={handleGenerateAddress}
-          loading={loading.addrgen}
-          disabled={selectedKeyIndex === '' || loading.addrgen}
+          loading={localLoading.addrgen}
+          disabled={selectedKeyIndex === '' || localLoading.addrgen}
         >
           Generate Address
         </Button>
@@ -140,7 +129,7 @@ ${addr.c_hex}`
       
       <Output 
         content={getOutputContent()}
-        isError={!!error}
+        isError={!!(localError || globalError)}
       />
     </Section>
   )
