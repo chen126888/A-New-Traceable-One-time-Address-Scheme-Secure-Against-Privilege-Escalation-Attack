@@ -110,8 +110,14 @@ function MessageSigning() {
       setSignatureList(prev => [...prev, signatureWithIndex])
       
       // 通知Signature Verification組件有新簽名
+      console.log('MessageSigning dispatching signatureCreated event:', signatureWithIndex)
       window.dispatchEvent(new CustomEvent('signatureCreated', { 
         detail: { signature: signatureWithIndex }
+      }))
+      
+      // 通知DSK組件
+      window.dispatchEvent(new CustomEvent('dskUpdated', { 
+        detail: { newDSK: signatureWithIndex, allDSKs: [...dskList, signatureWithIndex] }
       }))
       
     } catch (err) {

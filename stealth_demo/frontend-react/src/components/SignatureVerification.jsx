@@ -46,6 +46,7 @@ function SignatureVerification() {
   // 監聽簽名事件來創建完整的交易訊息
   useEffect(() => {
     const handleSignatureCreated = (event) => {
+      console.log('Signature Verification received signature:', event.detail)
       const { signature } = event.detail
       
       // 找到對應的地址數據
@@ -56,10 +57,12 @@ function SignatureVerification() {
         addressData = addresses.find(addr => addr.id === signature.address_id)
       }
       
+      console.log('Found address data:', addressData)
+      
       if (addressData) {
         // 創建完整的交易訊息 tx = (addr, R, m, σ)
         const txMessage = {
-          id: `tx_${txMessages.length}`,
+          id: `tx_${Date.now()}`,
           index: txMessages.length,
           timestamp: new Date().toISOString(),
           
@@ -81,17 +84,27 @@ function SignatureVerification() {
           status: 'pending_verification'
         }
         
-        setTxMessages(prev => [...prev, txMessage])
+        console.log('Creating transaction message:', txMessage)
+        setTxMessages(prev => {
+          const updated = [...prev, txMessage]
+          console.log('Updated tx messages:', updated)
+          return updated
+        })
+      } else {
+        console.warn('No address data found for signature:', signature)
       }
     }
 
-    window.addEventListener('signatureCreated', handleSignatureCreated)
+    // 先載入現有數據
     loadTxMessages()
+    
+    // 然後監聽新事件
+    window.addEventListener('signatureCreated', handleSignatureCreated)
 
     return () => {
       window.removeEventListener('signatureCreated', handleSignatureCreated)
     }
-  }, [loadTxMessages, addresses, txMessages.length])
+  }, [loadTxMessages, addresses]) // 移除 txMessages.length 依賴以避免循環
 
   // 刷新數據
   const handleRefreshData = useCallback(async () => {
@@ -119,6 +132,8 @@ function SignatureVerification() {
 
   // 驗證交易
   const handleVerifyTransaction = useCallback(async () => {
+    console.log('Verify transaction clicked!')
+    
     let txData = null
     
     if (useManualInput) {
@@ -165,21 +180,48 @@ function SignatureVerification() {
       }
     }
 
+    console.log('Transaction data to verify:', txData)
+
     try {
       setLocalLoading(prev => ({ ...prev, verifying: true }))
       setLocalError('')
       clearError()
       
-      // 調用後端API進行驗證
-      // 傳遞完整的交易數據，後端會自動使用交易中的地址信息
-      const result = await apiService.post('/verify_transaction', {
-        message: txData.message,
-        q_sigma_hex: txData.signature.q_sigma_hex,
-        h_hex: txData.signature.h_hex,
-        addr_hex: txData.address.addr_hex,
-        r2_hex: txData.address.r2_hex,
-        c_hex: txData.address.c_hex
-      })
+      // 嘗試使用新的交易驗證API
+      let result
+      try {
+        console.log('Trying new transaction verification API...')
+        result = await apiService.post('/verify_transaction', {
+          message: txData.message,
+          q_sigma_hex: txData.signature.q_sigma_hex,
+          h_hex: txData.signature.h_hex,
+          addr_hex: txData.address.addr_hex,
+          r2_hex: txData.address.r2_hex,
+          c_hex: txData.address.c_hex
+        })
+        console.log('New API result:', result)
+      } catch (newApiError) {
+        console.log('New API failed, trying fallback:', newApiError.message)
+        
+        // 後退方案：找到對應的地址索引並使用舊API
+        const addressIndex = addresses.findIndex(addr => 
+          addr.addr_hex === txData.address.addr_hex
+        )
+        
+        if (addressIndex >= 0) {
+          console.log('Using fallback API with address index:', addressIndex)
+          result = await apiService.verifySignature(
+            txData.message,
+            txData.signature.q_sigma_hex,
+            txData.signature.h_hex,
+            addressIndex
+          )
+          console.log('Fallback API result:', result)
+          result.fallback_method = true
+        } else {
+          throw new Error('Cannot find matching address for verification')
+        }
+      }
       
       setVerificationResult({
         ...result,
@@ -197,39 +239,11 @@ function SignatureVerification() {
         ))
       }
       
+      console.log('Verification completed:', result)
+      
     } catch (err) {
-      // 如果後端還沒有 /verify_transaction 端點，使用舊的方式
-      if (err.message.includes('404') || err.message.includes('verify_transaction')) {
-        try {
-          // 後退方案：找到對應的地址索引並使用舊API
-          const addressIndex = addresses.findIndex(addr => 
-            addr.addr_hex === txData.address.addr_hex
-          )
-          
-          if (addressIndex >= 0) {
-            const result = await apiService.verifySignature(
-              txData.message,
-              txData.signature.q_sigma_hex,
-              txData.signature.h_hex,
-              addressIndex
-            )
-            
-            setVerificationResult({
-              ...result,
-              timestamp: new Date().toISOString(),
-              transaction_data: txData,
-              verification_type: useManualInput ? 'manual' : 'auto',
-              fallback_method: true
-            })
-          } else {
-            throw new Error('Cannot find matching address for verification')
-          }
-        } catch (fallbackErr) {
-          setLocalError('Transaction verification failed: ' + fallbackErr.message)
-        }
-      } else {
-        setLocalError('Transaction verification failed: ' + err.message)
-      }
+      console.error('Verification failed:', err)
+      setLocalError('Transaction verification failed: ' + err.message)
       setVerificationResult(null)
     } finally {
       setLocalLoading(prev => ({ ...prev, verifying: false }))
@@ -387,6 +401,16 @@ tx = (addr, R, m, σ) where:
             }
           >
             Verify Transaction
+          </Button>
+          
+          <Button
+            onClick={() => {
+              console.log('Current txMessages:', txMessages)
+              console.log('Current addresses:', addresses)
+            }}
+            variant="secondary"
+          >
+            Debug Info
           </Button>
           
           <Button
