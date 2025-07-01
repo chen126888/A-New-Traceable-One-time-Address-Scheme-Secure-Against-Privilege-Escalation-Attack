@@ -119,20 +119,22 @@ ${addr.c_hex}`
           ))}
         </Select>
         
-        <Button
-          onClick={handleRefreshKeys}
-          variant="secondary"
-        >
-          Refresh Keys
-        </Button>
-        
-        <Button
-          onClick={handleGenerateAddress}
-          loading={localLoading.addrgen}
-          disabled={selectedKeyIndex === '' || localLoading.addrgen}
-        >
-          Generate Address
-        </Button>
+        <div className="inline-controls">
+          <Button
+            onClick={handleGenerateAddress}
+            loading={localLoading.addrgen}
+            disabled={selectedKeyIndex === '' || localLoading.addrgen}
+          >
+            Generate Address
+          </Button>
+          
+          <Button
+            onClick={handleRefreshKeys}
+            variant="secondary"
+          >
+            Refresh Keys
+          </Button>
+        </div>
       </div>
       
       <DataList items={addressItems} />

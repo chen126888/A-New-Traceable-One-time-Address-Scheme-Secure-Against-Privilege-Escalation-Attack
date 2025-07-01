@@ -42,6 +42,14 @@ function DSKGeneration() {
     }
   }, [])
 
+  // 新增：通知其他組件DSK更新的函數
+  const notifyDSKUpdate = useCallback((newDSK) => {
+    // 觸發自定義事件，讓MessageSigning組件知道有新的DSK
+    window.dispatchEvent(new CustomEvent('dskUpdated', { 
+      detail: { newDSK, allDSKs: [...dskList, newDSK] }
+    }))
+  }, [dskList])
+
   // 生成DSK
   const handleGenerateDSK = useCallback(async () => {
     if (selectedAddrIndex === '' || selectedKeyIndex === '') {
@@ -61,12 +69,15 @@ function DSKGeneration() {
       
       setDskList(prev => [...prev, newDSK])
       
+      // 通知其他組件DSK已更新
+      notifyDSKUpdate(newDSK)
+      
     } catch (err) {
       setLocalError('DSK generation failed: ' + err.message)
     } finally {
       setLocalLoading(prev => ({ ...prev, generating: false }))
     }
-  }, [selectedAddrIndex, selectedKeyIndex, clearError])
+  }, [selectedAddrIndex, selectedKeyIndex, clearError, notifyDSKUpdate])
 
   // 點擊DSK項目
   const handleDSKClick = useCallback((index) => {
@@ -158,10 +169,11 @@ ${dsk.owner_B}`
         
         <div className="inline-controls">
           <Button
-            onClick={handleRefreshData}
-            variant="secondary"
+            onClick={handleGenerateDSK}
+            loading={localLoading.generating}
+            disabled={selectedAddrIndex === '' || selectedKeyIndex === '' || localLoading.generating}
           >
-            Refresh Data
+            Generate DSK
           </Button>
           
           <Button
@@ -173,11 +185,10 @@ ${dsk.owner_B}`
           </Button>
           
           <Button
-            onClick={handleGenerateDSK}
-            loading={localLoading.generating}
-            disabled={selectedAddrIndex === '' || selectedKeyIndex === '' || localLoading.generating}
+            onClick={handleRefreshData}
+            variant="secondary"
           >
-            Generate DSK
+            Refresh Data
           </Button>
         </div>
       </div>

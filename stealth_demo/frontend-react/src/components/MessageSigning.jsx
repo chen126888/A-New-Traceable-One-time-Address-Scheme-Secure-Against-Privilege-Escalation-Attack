@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Section, Button, Select, Input, DataList, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
@@ -38,6 +38,24 @@ function MessageSigning() {
       setLocalLoading(prev => ({ ...prev, loadingDSK: false }))
     }
   }, [])
+
+  // 新增：監聽DSK更新事件
+  useEffect(() => {
+    const handleDSKUpdate = (event) => {
+      const { newDSK, allDSKs } = event.detail
+      console.log('MessageSigning received DSK update:', newDSK)
+      setDskList(allDSKs)
+    }
+
+    window.addEventListener('dskUpdated', handleDSKUpdate)
+    
+    // 組件掛載時也載入DSK列表
+    loadDSKList()
+
+    return () => {
+      window.removeEventListener('dskUpdated', handleDSKUpdate)
+    }
+  }, [loadDSKList])
 
   // 刷新數據
   const handleRefreshData = useCallback(async () => {
@@ -83,10 +101,18 @@ function MessageSigning() {
       const signatureWithIndex = {
         ...signature,
         index: signatureList.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        // 添加地址信息以便創建完整交易
+        address_index: signingMethod === 'keypair' ? parseInt(selectedAddrIndex) : undefined,
+        key_index: signingMethod === 'keypair' ? parseInt(selectedKeyIndex) : undefined
       }
       
       setSignatureList(prev => [...prev, signatureWithIndex])
+      
+      // 通知Signature Verification組件有新簽名
+      window.dispatchEvent(new CustomEvent('signatureCreated', { 
+        detail: { signature: signatureWithIndex }
+      }))
       
     } catch (err) {
       setLocalError('Message signing failed: ' + err.message)
@@ -208,7 +234,9 @@ ${sig.dsk_hex}` : ''}`
               value={selectedDSKIndex}
               onChange={(e) => setSelectedDSKIndex(e.target.value)}
             >
-              <option value="">Select a DSK...</option>
+              <option value="">
+                {dskList.length === 0 ? 'No DSKs available - Generate one first' : 'Select a DSK...'}
+              </option>
               {dskList.map((dsk, index) => (
                 <option key={dsk.id} value={index}>
                   {dsk.id} - For: {dsk.address_id} - {truncateHex(dsk.dsk_hex, 8)}
@@ -220,18 +248,18 @@ ${sig.dsk_hex}` : ''}`
         
         <div className="inline-controls">
           <Button
-            onClick={handleRefreshData}
-            variant="secondary"
-          >
-            Refresh Data
-          </Button>
-          
-          <Button
             onClick={handleSignMessage}
             loading={localLoading.signing}
             disabled={localLoading.signing || !message.trim()}
           >
             Sign Message
+          </Button>
+          
+          <Button
+            onClick={handleRefreshData}
+            variant="secondary"
+          >
+            Refresh Data
           </Button>
         </div>
       </div>

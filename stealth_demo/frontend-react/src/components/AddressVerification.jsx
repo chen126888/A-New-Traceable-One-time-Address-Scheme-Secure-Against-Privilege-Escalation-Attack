@@ -112,21 +112,23 @@ ${verificationResult.is_owner && verificationResult.valid ?
           ))}
         </Select>
         
-        <Button
-          onClick={handleRefreshData}
-          variant="secondary"
-          disabled={globalLoading.all}
-        >
-          Refresh Data
-        </Button>
-        
-        <Button
-          onClick={handleVerifyAddress}
-          loading={localLoading.verifying}
-          disabled={selectedAddrIndex === '' || selectedKeyIndex === '' || localLoading.verifying}
-        >
-          Verify Address
-        </Button>
+        <div className="inline-controls">
+          <Button
+            onClick={handleVerifyAddress}
+            loading={localLoading.verifying}
+            disabled={selectedAddrIndex === '' || selectedKeyIndex === '' || localLoading.verifying}
+          >
+            Verify Address
+          </Button>
+          
+          <Button
+            onClick={handleRefreshData}
+            variant="secondary"
+            disabled={globalLoading.all}
+          >
+            Refresh Data
+          </Button>
+        </div>
       </div>
       
       <Output 

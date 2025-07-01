@@ -503,6 +503,62 @@ label {
   visibility: visible;
 }
 
+/* Signing Summary */
+.signing-summary {
+  background: #d1ecf1;
+  border: 1px solid #bee5eb;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.signing-summary strong {
+  color: #0c5460;
+}
+
+/* Transaction Preview */
+.transaction-preview {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.transaction-preview strong {
+  color: #856404;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.transaction-preview div {
+  margin: 2px 0;
+  color: #6c757d;
+}
+
+/* Verification Info */
+.verification-info {
+  background: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 0.9em;
+}
+
+.verification-info strong {
+  color: #0066cc;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.verification-info div {
+  margin: 2px 0;
+  color: #495057;
+}
+
 /* Responsive Design */
 @media (max-width: 1400px) {
   .container {

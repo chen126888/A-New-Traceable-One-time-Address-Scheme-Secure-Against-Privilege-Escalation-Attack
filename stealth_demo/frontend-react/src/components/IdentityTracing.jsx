@@ -174,18 +174,18 @@ ${matchedKey ? `
         
         <div className="inline-controls">
           <Button
-            onClick={handleRefreshData}
-            variant="secondary"
-          >
-            Refresh Data
-          </Button>
-          
-          <Button
             onClick={handleTraceIdentity}
             loading={localLoading.tracing}
             disabled={selectedAddrIndex === '' || localLoading.tracing}
           >
             Trace Identity
+          </Button>
+          
+          <Button
+            onClick={handleRefreshData}
+            variant="secondary"
+          >
+            Refresh Data
           </Button>
         </div>
         

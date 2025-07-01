@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Section, Button, Select, Input, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
@@ -13,71 +13,156 @@ function SignatureVerification() {
     loadAddresses
   } = useAppData()
   
-  const [message, setMessage] = useState('')
-  const [qSigmaHex, setQSigmaHex] = useState('')
-  const [hHex, setHHex] = useState('')
-  const [selectedAddrIndex, setSelectedAddrIndex] = useState('')
+  const [selectedTxIndex, setSelectedTxIndex] = useState('')
+  const [txMessages, setTxMessages] = useState([])
+  const [useManualInput, setUseManualInput] = useState(false)
+  const [manualTxData, setManualTxData] = useState({
+    message: '',
+    qSigmaHex: '',
+    hHex: '',
+    addrHex: '',
+    r2Hex: '',
+    cHex: ''
+  })
   const [verificationResult, setVerificationResult] = useState(null)
   const [localLoading, setLocalLoading] = useState({})
   const [localError, setLocalError] = useState('')
 
-  // 刷新地址數據
-  const handleRefreshAddresses = useCallback(async () => {
+  // 載入交易訊息列表
+  const loadTxMessages = useCallback(async () => {
+    try {
+      setLocalLoading(prev => ({ ...prev, loadingTx: true }))
+      // 這裡應該從後端獲取完整的交易訊息列表
+      // 目前先用空數組，實際應該有 /tx_messages 端點
+      const response = await apiService.get('/tx_messages').catch(() => ({ data: [] }))
+      setTxMessages(response || [])
+    } catch (err) {
+      setLocalError('Failed to load transaction messages: ' + err.message)
+    } finally {
+      setLocalLoading(prev => ({ ...prev, loadingTx: false }))
+    }
+  }, [])
+
+  // 監聽簽名事件來創建完整的交易訊息
+  useEffect(() => {
+    const handleSignatureCreated = (event) => {
+      const { signature } = event.detail
+      
+      // 找到對應的地址數據
+      let addressData = null
+      if (signature.address_index !== undefined) {
+        addressData = addresses[signature.address_index]
+      } else if (signature.address_id) {
+        addressData = addresses.find(addr => addr.id === signature.address_id)
+      }
+      
+      if (addressData) {
+        // 創建完整的交易訊息 tx = (addr, R, m, σ)
+        const txMessage = {
+          id: `tx_${txMessages.length}`,
+          index: txMessages.length,
+          timestamp: new Date().toISOString(),
+          
+          // 交易組件
+          message: signature.message,                    // m: 原始訊息
+          signature: {
+            q_sigma_hex: signature.q_sigma_hex,         // σ.Q_σ: 簽名組件1
+            h_hex: signature.h_hex                      // σ.H: 簽名組件2
+          },
+          address: {
+            addr_hex: addressData.addr_hex,             // addr: 簽名地址
+            r2_hex: addressData.r2_hex,                 // R.r2: 地址組件
+            c_hex: addressData.c_hex,                   // R.c: 地址組件
+            owner_id: addressData.key_id                // 地址擁有者ID
+          },
+          
+          // 元數據
+          signing_method: signature.method,
+          status: 'pending_verification'
+        }
+        
+        setTxMessages(prev => [...prev, txMessage])
+      }
+    }
+
+    window.addEventListener('signatureCreated', handleSignatureCreated)
+    loadTxMessages()
+
+    return () => {
+      window.removeEventListener('signatureCreated', handleSignatureCreated)
+    }
+  }, [loadTxMessages, addresses, txMessages.length])
+
+  // 刷新數據
+  const handleRefreshData = useCallback(async () => {
     setLocalError('')
     clearError()
-    await loadAddresses()
-  }, [loadAddresses, clearError])
+    await Promise.all([loadAddresses(), loadTxMessages()])
+  }, [loadAddresses, loadTxMessages, clearError])
 
-  // 從測試簽名中導入數據（用於測試）
-  const handleImportTestSignature = useCallback(() => {
-    setMessage('Hello, this is a test message!')
-    setQSigmaHex('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef')
-    setHHex('abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890')
-    setSelectedAddrIndex('0')
-  }, [])
 
-  // 清空表單
-  const handleClearForm = useCallback(() => {
-    setMessage('')
-    setQSigmaHex('')
-    setHHex('')
-    setSelectedAddrIndex('')
+
+  // 清空選擇
+  const handleClearSelection = useCallback(() => {
+    setSelectedTxIndex('')
     setVerificationResult(null)
     setLocalError('')
+    setManualTxData({
+      message: '',
+      qSigmaHex: '',
+      hHex: '',
+      addrHex: '',
+      r2Hex: '',
+      cHex: ''
+    })
   }, [])
 
-  // 驗證簽名
-  const handleVerifySignature = useCallback(async () => {
-    // 驗證輸入
-    if (!message.trim()) {
-      setLocalError('Please enter the original message!')
-      return
-    }
+  // 驗證交易
+  const handleVerifyTransaction = useCallback(async () => {
+    let txData = null
     
-    if (!qSigmaHex.trim()) {
-      setLocalError('Please enter Q_sigma (signature component)!')
-      return
-    }
-    
-    if (!hHex.trim()) {
-      setLocalError('Please enter H (hash component)!')
-      return
-    }
-    
-    if (selectedAddrIndex === '') {
-      setLocalError('Please select an address!')
-      return
-    }
-    
-    // 驗證十六進制格式
-    if (!isValidHex(qSigmaHex)) {
-      setLocalError('Q_sigma must be a valid hexadecimal string!')
-      return
-    }
-    
-    if (!isValidHex(hHex)) {
-      setLocalError('H must be a valid hexadecimal string!')
-      return
+    if (useManualInput) {
+      // 使用手動輸入的數據
+      if (!manualTxData.message.trim() || !manualTxData.qSigmaHex.trim() || 
+          !manualTxData.hHex.trim() || !manualTxData.addrHex.trim() ||
+          !manualTxData.r2Hex.trim() || !manualTxData.cHex.trim()) {
+        setLocalError('Please fill in all transaction components!')
+        return
+      }
+      
+      // 驗證十六進制格式
+      const hexFields = ['qSigmaHex', 'hHex', 'addrHex', 'r2Hex', 'cHex']
+      for (const field of hexFields) {
+        if (!isValidHex(manualTxData[field])) {
+          setLocalError(`${field} must be a valid hexadecimal string!`)
+          return
+        }
+      }
+      
+      txData = {
+        message: manualTxData.message,
+        signature: {
+          q_sigma_hex: manualTxData.qSigmaHex,
+          h_hex: manualTxData.hHex
+        },
+        address: {
+          addr_hex: manualTxData.addrHex,
+          r2_hex: manualTxData.r2Hex,
+          c_hex: manualTxData.cHex
+        }
+      }
+    } else {
+      // 使用選定的交易
+      if (selectedTxIndex === '') {
+        setLocalError('Please select a transaction to verify!')
+        return
+      }
+      
+      txData = txMessages[parseInt(selectedTxIndex)]
+      if (!txData) {
+        setLocalError('Invalid transaction selection!')
+        return
+      }
     }
 
     try {
@@ -85,29 +170,71 @@ function SignatureVerification() {
       setLocalError('')
       clearError()
       
-      const result = await apiService.verifySignature(
-        message,
-        qSigmaHex,
-        hHex,
-        parseInt(selectedAddrIndex)
-      )
+      // 調用後端API進行驗證
+      // 傳遞完整的交易數據，後端會自動使用交易中的地址信息
+      const result = await apiService.post('/verify_transaction', {
+        message: txData.message,
+        q_sigma_hex: txData.signature.q_sigma_hex,
+        h_hex: txData.signature.h_hex,
+        addr_hex: txData.address.addr_hex,
+        r2_hex: txData.address.r2_hex,
+        c_hex: txData.address.c_hex
+      })
       
       setVerificationResult({
         ...result,
         timestamp: new Date().toISOString(),
-        input_message: message,
-        input_q_sigma: qSigmaHex,
-        input_h: hHex,
-        used_address: addresses[parseInt(selectedAddrIndex)]
+        transaction_data: txData,
+        verification_type: useManualInput ? 'manual' : 'auto'
       })
       
+      // 更新交易狀態
+      if (!useManualInput && selectedTxIndex !== '') {
+        setTxMessages(prev => prev.map((tx, index) => 
+          index === parseInt(selectedTxIndex) 
+            ? { ...tx, status: result.valid ? 'verified' : 'invalid' }
+            : tx
+        ))
+      }
+      
     } catch (err) {
-      setLocalError('Signature verification failed: ' + err.message)
+      // 如果後端還沒有 /verify_transaction 端點，使用舊的方式
+      if (err.message.includes('404') || err.message.includes('verify_transaction')) {
+        try {
+          // 後退方案：找到對應的地址索引並使用舊API
+          const addressIndex = addresses.findIndex(addr => 
+            addr.addr_hex === txData.address.addr_hex
+          )
+          
+          if (addressIndex >= 0) {
+            const result = await apiService.verifySignature(
+              txData.message,
+              txData.signature.q_sigma_hex,
+              txData.signature.h_hex,
+              addressIndex
+            )
+            
+            setVerificationResult({
+              ...result,
+              timestamp: new Date().toISOString(),
+              transaction_data: txData,
+              verification_type: useManualInput ? 'manual' : 'auto',
+              fallback_method: true
+            })
+          } else {
+            throw new Error('Cannot find matching address for verification')
+          }
+        } catch (fallbackErr) {
+          setLocalError('Transaction verification failed: ' + fallbackErr.message)
+        }
+      } else {
+        setLocalError('Transaction verification failed: ' + err.message)
+      }
       setVerificationResult(null)
     } finally {
       setLocalLoading(prev => ({ ...prev, verifying: false }))
     }
-  }, [message, qSigmaHex, hHex, selectedAddrIndex, addresses, clearError])
+  }, [useManualInput, manualTxData, selectedTxIndex, txMessages, addresses, clearError])
 
   const getOutputContent = () => {
     const error = localError || globalError
@@ -116,105 +243,171 @@ function SignatureVerification() {
     }
     
     if (verificationResult) {
-      const addr = verificationResult.used_address
-      return `🔍 Signature Verification Results:
-📝 Message: "${verificationResult.input_message}"
-📧 Address: ${verificationResult.address_id}
+      const txData = verificationResult.transaction_data
+      return `🔍 Transaction Verification Results:
+📝 Message: "${txData.message}"
+📧 Address: ${truncateHex(txData.address.addr_hex)}
 ✅ Verification Result: ${verificationResult.valid ? '✅ VALID' : '❌ INVALID'}
 📊 Status: ${verificationResult.status}
 ⏰ Verified at: ${verificationResult.timestamp}
+🛠️ Method: ${verificationResult.verification_type}${verificationResult.fallback_method ? ' (fallback)' : ''}
 
-📋 Verification Details:
-🏠 Used Address: ${addr?.id} - ${truncateHex(addr?.addr_hex)}
-👤 Address Owner: ${addr?.key_id}
+📋 Transaction Components (addr, R, m, σ):
+🏠 Address (addr): ${truncateHex(txData.address.addr_hex, 20)}
+🎲 R2: ${truncateHex(txData.address.r2_hex, 20)}
+🔒 C: ${truncateHex(txData.address.c_hex, 20)}
+📝 Message (m): "${txData.message}"
+✍️ Q_sigma (σ.Q): ${truncateHex(txData.signature.q_sigma_hex, 20)}
+🔢 H (σ.H): ${truncateHex(txData.signature.h_hex, 20)}
 
-🔐 Input Signature Components:
-Q_sigma: ${truncateHex(verificationResult.input_q_sigma, 20)}
-H: ${truncateHex(verificationResult.input_h, 20)}
+${txData.address.owner_id ? `👤 Address Owner: ${txData.address.owner_id}` : ''}
 
 ${verificationResult.valid ? 
-  '🎉 Signature is mathematically valid!' : 
-  '❌ Signature verification failed - either the signature is invalid or doesn\'t match the message/address.'
+  '🎉 Transaction signature is mathematically valid!' : 
+  '❌ Transaction verification failed - the signature does not match the transaction data.'
 }`
     }
     
-    return 'Enter message and signature components to verify...'
-  }
+    if (txMessages.length === 0) {
+      return `📋 About Transaction Verification:
+This verifies complete transaction messages in the format:
+tx = (addr, R, m, σ) where:
+• addr: The signing address
+• R: Address components (R2, C)  
+• m: The original message
+• σ: Signature components (Q_σ, H)
 
-  const isFormValid = message.trim() && qSigmaHex.trim() && hHex.trim() && selectedAddrIndex !== ''
+🔄 Getting Started:
+1. Create signatures in the "Message Signing" section
+2. Return here to verify complete transactions
+3. All transaction components are automatically included
+
+💡 No manual address selection needed - the address is part of the transaction!`
+    }
+    
+    return 'Select a transaction to verify or use manual input mode...'
+  }
 
   return (
     <Section title="🔍 Signature Verification">
       <div className="controls">
-        <label>Original Message:</label>
-        <Input
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Enter the original message that was signed..."
-        />
-        
-        <label>Q_sigma (Signature Component - G1 element in hex):</label>
-        <Input
-          value={qSigmaHex}
-          onChange={(e) => setQSigmaHex(e.target.value)}
-          placeholder="Enter Q_sigma as hexadecimal string..."
-        />
-        
-        <label>H (Hash Component - Zr element in hex):</label>
-        <Input
-          value={hHex}
-          onChange={(e) => setHHex(e.target.value)}
-          placeholder="Enter H as hexadecimal string..."
-        />
-        
-        <label>Select Address to Verify Against:</label>
+        <label>Verification Mode:</label>
         <Select
-          value={selectedAddrIndex}
-          onChange={(e) => setSelectedAddrIndex(e.target.value)}
+          value={useManualInput ? 'manual' : 'auto'}
+          onChange={(e) => setUseManualInput(e.target.value === 'manual')}
         >
-          <option value="">Select an address...</option>
-          {addresses.map((addr, index) => (
-            <option key={addr.id} value={index}>
-              {addr.id} - Owner: {addr.key_id} - {truncateHex(addr.addr_hex, 8)}
-            </option>
-          ))}
+          <option value="auto">Transaction List (tx = addr, R, m, σ)</option>
+          <option value="manual">Manual Transaction Input</option>
         </Select>
+        
+        {!useManualInput ? (
+          <>
+            <label>Select Transaction to Verify:</label>
+            <Select
+              value={selectedTxIndex}
+              onChange={(e) => setSelectedTxIndex(e.target.value)}
+            >
+              <option value="">
+                {txMessages.length === 0 
+                  ? 'No transactions available - Sign a message first'
+                  : 'Select a transaction to verify...'
+                }
+              </option>
+              {txMessages.map((tx, index) => (
+                <option key={tx.id || index} value={index}>
+                  Tx {index}: "{tx.message?.substring(0, 25)}{tx.message?.length > 25 ? '...' : ''}" 
+                  - {tx.signing_method} - {tx.status}
+                </option>
+              ))}
+            </Select>
+            
+            {selectedTxIndex !== '' && txMessages[parseInt(selectedTxIndex)] && (
+              <div className="tx-preview">
+                <strong>📋 Transaction Preview:</strong>
+                <div>🏠 Address: {truncateHex(txMessages[parseInt(selectedTxIndex)].address?.addr_hex, 16)}</div>
+                <div>📝 Message: "{txMessages[parseInt(selectedTxIndex)].message}"</div>
+                <div>✍️ Signature: {truncateHex(txMessages[parseInt(selectedTxIndex)].signature?.q_sigma_hex, 16)}</div>
+                <div>📊 Status: {txMessages[parseInt(selectedTxIndex)].status}</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="manual-input">
+            <label>📝 Message (m):</label>
+            <Input
+              value={manualTxData.message}
+              onChange={(e) => setManualTxData(prev => ({ ...prev, message: e.target.value }))}
+              placeholder="Enter the original message..."
+            />
+            
+            <label>🏠 Address (addr) - hex:</label>
+            <Input
+              value={manualTxData.addrHex}
+              onChange={(e) => setManualTxData(prev => ({ ...prev, addrHex: e.target.value }))}
+              placeholder="Enter address as hexadecimal..."
+            />
+            
+            <label>🎲 R2 Component - hex:</label>
+            <Input
+              value={manualTxData.r2Hex}
+              onChange={(e) => setManualTxData(prev => ({ ...prev, r2Hex: e.target.value }))}
+              placeholder="Enter R2 as hexadecimal..."
+            />
+            
+            <label>🔒 C Component - hex:</label>
+            <Input
+              value={manualTxData.cHex}
+              onChange={(e) => setManualTxData(prev => ({ ...prev, cHex: e.target.value }))}
+              placeholder="Enter C as hexadecimal..."
+            />
+            
+            <label>✍️ Q_sigma (σ.Q) - hex:</label>
+            <Input
+              value={manualTxData.qSigmaHex}
+              onChange={(e) => setManualTxData(prev => ({ ...prev, qSigmaHex: e.target.value }))}
+              placeholder="Enter Q_sigma as hexadecimal..."
+            />
+            
+            <label>🔢 H (σ.H) - hex:</label>
+            <Input
+              value={manualTxData.hHex}
+              onChange={(e) => setManualTxData(prev => ({ ...prev, hHex: e.target.value }))}
+              placeholder="Enter H as hexadecimal..."
+            />
+          </div>
+        )}
         
         <div className="inline-controls">
           <Button
-            onClick={handleRefreshAddresses}
-            variant="secondary"
-          >
-            Refresh Addresses
-          </Button>
-          
-          <Button
-            onClick={handleImportTestSignature}
-            variant="secondary"
-          >
-            Import Test Data
-          </Button>
-          
-          <Button
-            onClick={handleClearForm}
-            variant="secondary"
-          >
-            Clear Form
-          </Button>
-          
-          <Button
-            onClick={handleVerifySignature}
+            onClick={handleVerifyTransaction}
             loading={localLoading.verifying}
-            disabled={!isFormValid || localLoading.verifying}
+            disabled={localLoading.verifying || 
+              (!useManualInput && selectedTxIndex === '') ||
+              (useManualInput && (!manualTxData.message.trim() || !manualTxData.qSigmaHex.trim()))
+            }
           >
-            Verify Signature
+            Verify Transaction
+          </Button>
+          
+          <Button
+            onClick={handleClearSelection}
+            variant="secondary"
+          >
+            Clear Selection
+          </Button>
+          
+          <Button
+            onClick={handleRefreshData}
+            variant="secondary"
+          >
+            Refresh Data
           </Button>
         </div>
         
         {verificationResult && (
           <div className={`verification-status ${verificationResult.valid ? 'valid' : 'invalid'}`}>
             <strong>
-              {verificationResult.valid ? '✅ SIGNATURE VALID' : '❌ SIGNATURE INVALID'}
+              {verificationResult.valid ? '✅ TRANSACTION VALID' : '❌ TRANSACTION INVALID'}
             </strong>
           </div>
         )}
@@ -224,28 +417,6 @@ ${verificationResult.valid ?
         content={getOutputContent()}
         isError={!!(localError || globalError)}
       />
-      
-      <style jsx>{`
-        .verification-status {
-          padding: 15px;
-          border-radius: 8px;
-          margin: 10px 0;
-          text-align: center;
-          font-size: 1.1em;
-        }
-        
-        .verification-status.valid {
-          background: #d4edda;
-          border: 2px solid #28a745;
-          color: #155724;
-        }
-        
-        .verification-status.invalid {
-          background: #f8d7da;
-          border: 2px solid #dc3545;
-          color: #721c24;
-        }
-      `}</style>
     </Section>
   )
 }

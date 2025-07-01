@@ -17,7 +17,13 @@ function PerformanceTest() {
   const [localError, setLocalError] = useState('')
 
   // 運行性能測試
-  const handleRunPerformanceTest = useCallback(async () => {
+  const handleRunPerformanceTest = useCallback(async (e) => {
+    // 防止表單提交導致頁面跳轉
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     if (iterations < 1 || iterations > 1000) {
       setLocalError('Iterations must be between 1 and 1000!')
       return
@@ -52,7 +58,11 @@ function PerformanceTest() {
   }, [iterations, testResults.length, clearError])
 
   // 清空測試結果
-  const handleClearResults = useCallback(() => {
+  const handleClearResults = useCallback((e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     setTestResults([])
     setSelectedResultIndex(-1)
     setLocalError('')
@@ -63,6 +73,21 @@ function PerformanceTest() {
     setSelectedResultIndex(index)
   }, [])
 
+  // 設置迭代次數的處理函數
+  const handleIterationChange = useCallback((e) => {
+    const value = parseInt(e.target.value) || 100
+    setIterations(Math.min(Math.max(value, 1), 1000))
+  }, [])
+
+  // 設置預設值的處理函數
+  const handlePresetClick = useCallback((value, e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    setIterations(value)
+  }, [])
+
   const getOutputContent = () => {
     const error = localError || globalError
     if (error) {
@@ -71,6 +96,8 @@ function PerformanceTest() {
     
     if (selectedResultIndex >= 0 && testResults[selectedResultIndex]) {
       const result = testResults[selectedResultIndex]
+      const fastestOp = getFastestOperation(result)
+      const slowestOp = getSlowestOperation(result)
       
       return `🏁 Performance Test Results - Test ${selectedResultIndex}
 ⏰ Test Time: ${result.timestamp}
@@ -109,8 +136,8 @@ function PerformanceTest() {
    └─ Trace authority operation
 
 📊 Performance Analysis:
-   Fastest Operation: ${this.getFastestOperation(result)}
-   Slowest Operation: ${this.getSlowestOperation(result)}
+   Fastest Operation: ${fastestOp}
+   Slowest Operation: ${slowestOp}
    Total Cycle Time: ${(result.addr_gen_ms + result.fast_verify_ms + result.onetime_sk_ms + result.sign_ms + result.sig_verify_ms + result.trace_ms).toFixed(3)}ms`
     }
     
@@ -180,7 +207,7 @@ Key Metrics:
         <Input
           type="number"
           value={iterations}
-          onChange={(e) => setIterations(parseInt(e.target.value) || 100)}
+          onChange={handleIterationChange}
           min="1"
           max="1000"
         />
@@ -191,9 +218,10 @@ Key Metrics:
             {getIterationPresets().map(preset => (
               <Button
                 key={preset.value}
-                onClick={() => setIterations(preset.value)}
+                onClick={(e) => handlePresetClick(preset.value, e)}
                 variant="secondary"
                 className="preset-btn"
+                type="button"
               >
                 {preset.label}
               </Button>
@@ -207,6 +235,7 @@ Key Metrics:
             loading={localLoading.testing}
             disabled={localLoading.testing || iterations < 1 || iterations > 1000}
             className="test-button"
+            type="button"
           >
             {localLoading.testing ? 'Running Test...' : 'Run Performance Test'}
           </Button>
@@ -215,6 +244,7 @@ Key Metrics:
             onClick={handleClearResults}
             variant="secondary"
             disabled={testResults.length === 0}
+            type="button"
           >
             Clear Results
           </Button>
@@ -287,62 +317,6 @@ Key Metrics:
         content={getOutputContent()}
         isError={!!(localError || globalError)}
       />
-      
-      <style jsx>{`
-        .preset-buttons {
-          margin: 10px 0;
-        }
-        
-        .preset-btn {
-          margin: 2px;
-          padding: 8px 12px;
-          font-size: 0.85em;
-        }
-        
-        .test-controls {
-          margin: 15px 0;
-        }
-        
-        .test-button {
-          min-width: 180px;
-          margin-right: 10px;
-        }
-        
-        .results-selector {
-          margin: 15px 0;
-        }
-        
-        .progress-indicator {
-          margin: 15px 0;
-          text-align: center;
-        }
-        
-        .progress-bar {
-          width: 100%;
-          height: 6px;
-          background: #f0f0f0;
-          border-radius: 3px;
-          overflow: hidden;
-          margin: 10px 0;
-        }
-        
-        .progress-fill {
-          height: 100%;
-          background: linear-gradient(45deg, #667eea, #764ba2);
-          animation: progress 3s ease-in-out infinite;
-        }
-        
-        .progress-text {
-          color: #666;
-          font-size: 0.9em;
-        }
-        
-        @keyframes progress {
-          0% { width: 0%; }
-          50% { width: 70%; }
-          100% { width: 100%; }
-        }
-      `}</style>
     </Section>
   )
 }
