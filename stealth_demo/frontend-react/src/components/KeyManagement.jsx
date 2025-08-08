@@ -20,7 +20,12 @@ function KeyManagement() {
       addKey(newKey)
       
     } catch (err) {
-      setLocalError('Key generation failed: ' + err.message)
+      // 如果是系統未初始化或無方案選擇，提供更友好的錯誤信息
+      if (err.message.includes('not initialized') || err.message.includes('No scheme selected')) {
+        setLocalError('Please select a scheme and initialize the system first.')
+      } else {
+        setLocalError('Key generation failed: ' + err.message)
+      }
     } finally {
       setLocalLoading(prev => ({ ...prev, keygen: false }))
     }

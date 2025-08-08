@@ -1,5 +1,19 @@
 import React from 'react'
 
+// Card組件
+export function Card({ title, children, className = '', ...props }) {
+  return (
+    <div className={`card ${className}`} {...props}>
+      {title && <div className="card-header">
+        <h3 className="card-title">{title}</h3>
+      </div>}
+      <div className="card-content">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // Section組件
 export function Section({ title, children, statusActive = false, className = '', wide = false }) {
   const sectionClass = `section ${wide ? 'wide-section' : ''} ${className}`

@@ -113,8 +113,8 @@ ${addr.c_hex}`
         >
           <option value="">Select a key...</option>
           {keys.map((key, index) => (
-            <option key={key.id} value={index}>
-              {key.id} - A: {truncateHex(key.A_hex, 8)}
+            <option key={key.id || index} value={index}>
+              Key {key.index || index} - A: {truncateHex(key.A_hex || key.public_key, 8)}
             </option>
           ))}
         </Select>

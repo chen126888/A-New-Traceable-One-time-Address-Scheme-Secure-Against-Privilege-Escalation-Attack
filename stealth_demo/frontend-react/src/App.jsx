@@ -1,4 +1,6 @@
 import React from 'react'
+import './styles/App.css'
+import SchemeSelector from './components/SchemeSelector'
 import SystemSetup from './components/SystemSetup'
 import KeyManagement from './components/KeyManagement'
 import AddressGeneration from './components/AddressGeneration'
@@ -24,6 +26,9 @@ function App() {
       <div className="app">
         <div className="container">
           <Header />
+          
+          {/* 方案選擇器 */}
+          <SchemeSelector />
           
           <div className="grid">
             {/* 第一行：基礎設置和密鑰管理 */}

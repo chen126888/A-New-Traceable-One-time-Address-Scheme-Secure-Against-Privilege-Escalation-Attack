@@ -1,5 +1,7 @@
 // API服務層 - 統一管理所有API調用
-const API_BASE = '/api'
+const API_BASE = window.location.hostname === 'localhost' && window.location.port === '5173' 
+  ? 'http://localhost:3000/api'  // Vite開發模式
+  : '/api'  // 生產模式(後端提供前端)
 
 class ApiService {
   async request(endpoint, options = {}) {

@@ -18,16 +18,40 @@ function SystemSetup() {
     loadParamFiles()
   }, [])
 
+  // 監聽方案變更事件
+  useEffect(() => {
+    const handleSchemeChange = () => {
+      // 方案變更時重新加載參數文件
+      loadParamFiles()
+      // 重置設置狀態
+      setSetupComplete(false)
+      setSelectedParam('')
+      setError('')
+    }
+
+    window.addEventListener('schemeChanged', handleSchemeChange)
+    return () => window.removeEventListener('schemeChanged', handleSchemeChange)
+  }, [])
+
   const loadParamFiles = async () => {
     try {
       setLoading(prev => ({ ...prev, paramFiles: true }))
+      setError('') // 清除之前的錯誤
+      
       const data = await apiService.getParamFiles()
       setParamFiles(data.param_files)
       if (data.current) {
         setSelectedParam(data.current)
       }
     } catch (err) {
-      setError('Failed to load parameter files: ' + err.message)
+      // 如果是 "No scheme selected" 錯誤，不顯示為錯誤狀態
+      if (err.message.includes('No scheme selected')) {
+        console.log('Waiting for scheme selection...')
+        setParamFiles([])
+        setSelectedParam('')
+      } else {
+        setError('Failed to load parameter files: ' + err.message)
+      }
     } finally {
       setLoading(prev => ({ ...prev, paramFiles: false }))
     }
@@ -63,14 +87,22 @@ function SystemSetup() {
       return `Error: ${error}`
     }
     
-    if (setupComplete && traceKey) {
-      return `✅ System Initialized Successfully!
-📄 Parameter File: ${selectedParam}
-🔑 Trace Key: ${truncateHex(traceKey.TK_hex)}
-🔐 K Value: ${truncateHex(traceKey.k_hex)}
-📊 G1 Size: ${traceKey.g1_size} bytes
-📊 Zr Size: ${traceKey.zr_size} bytes
-✅ Status: ${traceKey.status}`
+    if (setupComplete) {
+      let output = `✅ System Initialized Successfully!
+📄 Parameter File: ${selectedParam}`;
+      
+      if (traceKey) {
+        output += `
+🔑 Trace Key: ${truncateHex(traceKey.TK_hex || '')}
+🔐 K Value: ${truncateHex(traceKey.k_hex || '')}
+📊 G1 Size: ${traceKey.g1_size || 'N/A'} bytes
+📊 Zr Size: ${traceKey.zr_size || 'N/A'} bytes`;
+      }
+      
+      output += `
+✅ Status: ${traceKey?.status || 'success'}`;
+      
+      return output
     }
     
     return ''
@@ -89,11 +121,13 @@ function SystemSetup() {
           disabled={loading.paramFiles}
         >
           <option value="">
-            {loading.paramFiles ? 'Loading...' : 'Select a parameter file...'}
+            {loading.paramFiles ? 'Loading...' : 
+             paramFiles.length === 0 ? 'Please select a scheme first...' : 
+             'Select a parameter file...'}
           </option>
           {paramFiles.map((file) => (
-            <option key={file.name} value={file.name}>
-              {file.name} ({file.size} bytes)
+            <option key={file} value={file}>
+              {file}
             </option>
           ))}
         </Select>

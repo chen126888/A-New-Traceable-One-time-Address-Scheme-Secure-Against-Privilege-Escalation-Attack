@@ -1,97 +1,140 @@
-CC = gcc
-CFLAGS = -Wall -fPIC -I. -O2
-LIBS = -lpbc -lgmp -lcrypto -lssl
-OUT = ../lib/libstealth.so
+# Multi-Scheme Stealth Demo Master Makefile
+# Build system for all cryptographic schemes
 
-# Source files
-CORE_SRC = my_scheme_core.c
-API_SRC = python_api.c
-HEADERS = my_scheme_core.h python_api.h
+# Available schemes
+SCHEMES = my_stealth cryptonote2 zhao hdwsa sitaiba
 
-# Object files
-CORE_OBJ = my_scheme_core.o
-API_OBJ = python_api.o
+# Colors for output
+GREEN = \033[0;32m
+YELLOW = \033[1;33m
+RED = \033[0;31m
+NC = \033[0m # No Color
 
-# Main target: build the shared library
-all: $(OUT)
+.PHONY: all clean help status $(SCHEMES)
 
-$(OUT): $(CORE_OBJ) $(API_OBJ)
-	@mkdir -p ../lib
-	$(CC) $(CFLAGS) -shared -o $(OUT) $(CORE_OBJ) $(API_OBJ) $(LIBS)
-	@echo "✅ Shared library built: $(OUT)"
-	@echo "📁 Architecture: Core ($(CORE_SRC)) + API ($(API_SRC))"
+# Default target: build all available schemes
+all:
+	@echo "$(GREEN)🔧 Building all schemes...$(NC)"
+	@$(MAKE) my_stealth
+	@echo "$(GREEN)✅ All available schemes built successfully!$(NC)"
 
-# Compile core cryptographic functions
-$(CORE_OBJ): $(CORE_SRC) my_scheme_core.h
-	$(CC) $(CFLAGS) -c $(CORE_SRC) -o $(CORE_OBJ)
-	@echo "🔐 Core cryptographic functions compiled"
+# Build individual schemes
+my_stealth:
+	@echo "$(YELLOW)🔐 Building My Stealth scheme...$(NC)"
+	@cd my_stealth && $(MAKE) all
+	@echo "$(GREEN)✅ My Stealth scheme built$(NC)"
 
-# Compile Python API layer
-$(API_OBJ): $(API_SRC) python_api.h my_scheme_core.h
-	$(CC) $(CFLAGS) -c $(API_SRC) -o $(API_OBJ)
-	@echo "🐍 Python API interface compiled"
+cryptonote2:
+	@echo "$(YELLOW)💰 Building CryptoNote2 scheme...$(NC)"
+	@if [ -f cryptonote2/Makefile ]; then \
+		cd cryptonote2 && $(MAKE) all; \
+		echo "$(GREEN)✅ CryptoNote2 scheme built$(NC)"; \
+	else \
+		echo "$(RED)❌ CryptoNote2 not available (source code needed)$(NC)"; \
+	fi
 
-# Optional: build a test executable for debugging
-test: test_stealth
-	./test_stealth ../param/a.param
+zhao:
+	@echo "$(YELLOW)🏛️ Building Zhao scheme...$(NC)"
+	@if [ -f zhao/Makefile ]; then \
+		cd zhao && $(MAKE) all; \
+		echo "$(GREEN)✅ Zhao scheme built$(NC)"; \
+	else \
+		echo "$(RED)❌ Zhao scheme not available (source code needed)$(NC)"; \
+	fi
 
-test_stealth: test_main.c $(CORE_OBJ) $(API_OBJ)
-	$(CC) $(CFLAGS) -o test_stealth test_main.c $(CORE_OBJ) $(API_OBJ) $(LIBS)
-	@echo "✅ Test executable built: test_stealth"
+hdwsa:
+	@echo "$(YELLOW)🔑 Building HDWSA scheme...$(NC)"
+	@if [ -f hdwsa/Makefile ]; then \
+		cd hdwsa && $(MAKE) all; \
+		echo "$(GREEN)✅ HDWSA scheme built$(NC)"; \
+	else \
+		echo "$(RED)❌ HDWSA scheme not available (source code needed)$(NC)"; \
+	fi
 
-# Check if library loads correctly
-check: $(OUT)
-	@echo "🔍 Checking library..."
-	@ldd $(OUT) 2>/dev/null || echo "❌ Library dependencies missing"
-	@echo "📊 Library info:"
-	@file $(OUT)
-	@ls -la $(OUT)
-	@echo "✅ Library check complete"
+sitaiba:
+	@echo "$(YELLOW)🌐 Building Sitaiba scheme...$(NC)"
+	@if [ -f sitaiba/Makefile ]; then \
+		cd sitaiba && $(MAKE) all; \
+		echo "$(GREEN)✅ Sitaiba scheme built$(NC)"; \
+	else \
+		echo "$(RED)❌ Sitaiba scheme not available (source code needed)$(NC)"; \
+	fi
 
-# Debug: show what symbols are exported
-symbols: $(OUT)
-	@echo "🔍 Exported symbols:"
-	@nm -D $(OUT) | grep " T " | grep stealth || echo "No stealth symbols found"
-
-# Clean build artifacts
+# Clean all schemes
 clean:
-	rm -f *.o $(OUT) test_stealth
-	@echo "🧹 Cleaned build artifacts"
+	@echo "$(YELLOW)🧹 Cleaning all schemes...$(NC)"
+	@for scheme in $(SCHEMES); do \
+		if [ -f $$scheme/Makefile ]; then \
+			echo "  🧹 Cleaning $$scheme..."; \
+			cd $$scheme && $(MAKE) clean && cd ..; \
+		fi; \
+	done
+	@echo "$(GREEN)✅ All schemes cleaned$(NC)"
 
-# Install library (optional)
-install: $(OUT)
-	sudo cp $(OUT) /usr/local/lib/
-	sudo ldconfig
-	@echo "📦 Library installed to /usr/local/lib/"
+# Check all built libraries
+check:
+	@echo "$(YELLOW)🔍 Checking all built libraries...$(NC)"
+	@for scheme in $(SCHEMES); do \
+		if [ -f $$scheme/Makefile ]; then \
+			echo "  🔍 Checking $$scheme..."; \
+			cd $$scheme && $(MAKE) check && cd ..; \
+		fi; \
+	done
+	@echo "$(GREEN)✅ Library check complete$(NC)"
 
-# Development help
+# Show status of all schemes
+status:
+	@echo "$(GREEN)📊 Multi-Scheme Build Status$(NC)"
+	@echo "=================================="
+	@for scheme in $(SCHEMES); do \
+		printf "%-12s: " $$scheme; \
+		if [ -f $$scheme/Makefile ]; then \
+			if [ -f ../lib/lib$$scheme.so ]; then \
+				echo "$(GREEN)✅ Built$(NC)"; \
+			else \
+				echo "$(YELLOW)📁 Source ready$(NC)"; \
+			fi; \
+		else \
+			echo "$(RED)❌ Not available$(NC)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "📁 Available libraries in ../lib/:"
+	@ls -la ../lib/*.so 2>/dev/null || echo "  (no libraries built yet)"
+
+# Install all libraries (optional)
+install:
+	@echo "$(YELLOW)📦 Installing all libraries...$(NC)"
+	@for scheme in $(SCHEMES); do \
+		if [ -f ../lib/lib$$scheme.so ]; then \
+			sudo cp ../lib/lib$$scheme.so /usr/local/lib/; \
+			echo "  📦 Installed lib$$scheme.so"; \
+		fi; \
+	done
+	@sudo ldconfig
+	@echo "$(GREEN)✅ All libraries installed$(NC)"
+
+# Show help
 help:
-	@echo "📚 Available targets:"
-	@echo "  all      - Build shared library (default)"
-	@echo "  test     - Build and run test executable"
-	@echo "  check    - Check library dependencies and info"
-	@echo "  symbols  - Show exported function symbols"
-	@echo "  clean    - Remove build artifacts"
-	@echo "  install  - Install library system-wide"
-	@echo "  help     - Show this help"
+	@echo "$(GREEN)📚 Multi-Scheme Stealth Demo Build System$(NC)"
+	@echo "=============================================="
 	@echo ""
-	@echo "📁 Project structure:"
-	@echo "  $(CORE_SRC)  - Core cryptographic functions"
-	@echo "  $(API_SRC)   - Python interface layer"
-	@echo "  $(HEADERS)    - Header files"
-
-# Show project structure
-structure:
-	@echo "📁 Current project structure:"
-	@echo "c_src/"
-	@echo "├── $(CORE_SRC)      # Core cryptographic functions"
-	@echo "├── my_scheme_core.h    # Core function declarations"
-	@echo "├── $(API_SRC)       # Python interface functions"
-	@echo "├── python_api.h        # Python interface declarations"
-	@echo "├── Makefile            # This makefile"
-	@echo "└── test_main.c         # Test program (optional)"
+	@echo "$(YELLOW)Available targets:$(NC)"
+	@echo "  all           - Build all available schemes (default)"
+	@echo "  my_stealth    - Build My Stealth scheme only"
+	@echo "  cryptonote2   - Build CryptoNote2 scheme only"  
+	@echo "  zhao          - Build Zhao scheme only"
+	@echo "  hdwsa         - Build HDWSA scheme only"
+	@echo "  sitaiba       - Build Sitaiba scheme only"
+	@echo "  clean         - Clean all build artifacts"
+	@echo "  check         - Check all built libraries"
+	@echo "  status        - Show build status of all schemes"
+	@echo "  install       - Install libraries system-wide"
+	@echo "  help          - Show this help"
 	@echo ""
-	@echo "Generated:"
-	@echo "└── ../lib/$(notdir $(OUT))  # Compiled shared library"
-
-.PHONY: all test check symbols clean install help structure
+	@echo "$(YELLOW)Available schemes:$(NC)"
+	@echo "  my_stealth    - Original stealth address scheme (✅ available)"
+	@echo "  cryptonote2   - CryptoNote v2 protocol (❌ needs source code)"
+	@echo "  zhao          - Zhao's scheme (❌ needs source code)"
+	@echo "  hdwsa         - Hierarchical Deterministic scheme (❌ needs source code)"
+	@echo "  sitaiba       - Sitaiba's scheme (❌ needs source code)"
