@@ -4,7 +4,11 @@ import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
 
-function SystemSetup() {
+// Import display components
+import { SystemSetupDisplay } from './displays/sitaiba'
+import { StealthSystemSetup } from './displays/stealth'
+
+function SystemSetup({ activeScheme }) {
   const { loadAllData, resetData } = useAppData()
   const [paramFiles, setParamFiles] = useState([])
   const [selectedParam, setSelectedParam] = useState('')
@@ -59,21 +63,23 @@ function SystemSetup() {
   }
 
   const getOutputContent = () => {
-    if (error) {
-      return `Error: ${error}`
-    }
-    
-    if (setupComplete && traceKey) {
-      return `✅ System Initialized Successfully!
+    // Use scheme-specific display components
+    if (activeScheme === 'stealth') {
+      return <StealthSystemSetup setupResult={setupComplete ? traceKey : null} error={error} />
+    } else if (activeScheme === 'sitaiba') {
+      return <SystemSetupDisplay setupResult={setupComplete ? traceKey : null} error={error} />
+    } else {
+      // Fallback for unknown schemes or no scheme selected
+      if (error) {
+        return `Error: ${error}`
+      }
+      if (setupComplete && traceKey) {
+        return `✅ System Initialized Successfully!
 📄 Parameter File: ${selectedParam}
-🔑 Trace Key: ${truncateHex(traceKey.TK_hex)}
-🔐 K Value: ${truncateHex(traceKey.k_hex)}
-📊 G1 Size: ${traceKey.g1_size} bytes
-📊 Zr Size: ${traceKey.zr_size} bytes
-✅ Status: ${traceKey.status}`
+📊 Status: ${traceKey.status || 'Setup complete'}`
+      }
+      return `Select a cryptographic scheme to see setup options...`
     }
-    
-    return ''
   }
 
   return (
@@ -107,10 +113,9 @@ function SystemSetup() {
         </Button>
       </div>
       
-      <Output 
-        content={getOutputContent()}
-        isError={!!error}
-      />
+      <div className="output">
+        {getOutputContent()}
+      </div>
     </Section>
   )
 }

@@ -3,8 +3,9 @@ import { Section, Button, Select, Input, DataList, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
+import { getDisplayComponent } from './displays'
 
-function MessageSigning() {
+function MessageSigning({ activeScheme }) {
   const { 
     keys, 
     addresses, 
@@ -12,14 +13,14 @@ function MessageSigning() {
     error: globalError, 
     clearError,
     loadKeys,
-    loadAddresses
+    loadAddresses,
+    addTransaction  // 添加 addTransaction
   } = useAppData()
   
   const [message, setMessage] = useState('Hello, this is a test message!')
-  const [selectedKeyIndex, setSelectedKeyIndex] = useState('')
   const [selectedAddrIndex, setSelectedAddrIndex] = useState('')
   const [selectedDSKIndex, setSelectedDSKIndex] = useState('')
-  const [signingMethod, setSigningMethod] = useState('keypair') // 'keypair' or 'dsk'
+  // Stealth 簽名只能用 DSK，不需要 signing method 選項
   const [dskList, setDskList] = useState([])
   const [signatureList, setSignatureList] = useState([])
   const [selectedSigIndex, setSelectedSigIndex] = useState(-1)
@@ -31,7 +32,21 @@ function MessageSigning() {
     try {
       setLocalLoading(prev => ({ ...prev, loadingDSK: true }))
       const data = await apiService.get('/dsklist')
-      setDskList(data)
+      
+      // 標準化 DSK 數據格式，處理不同 scheme 的差異
+      const normalizedDSKs = data.map(dsk => ({
+        ...dsk,
+        // 確保有統一的 id 字段
+        id: dsk.id || `dsk_${dsk.dsk_id ?? Date.now()}`,
+        // 為 stealth DSK 添加平坦化的字段以便顯示
+        dsk_hex: dsk.dsk_hex || dsk.dsk,
+        // 確保有正確的 address_id 字段
+        address_id: dsk.address_id || `stealth_addr_${dsk.addr_id}`,
+        // 確保有 key_id 字段
+        key_id: dsk.key_id
+      }))
+      
+      setDskList(normalizedDSKs)
     } catch (err) {
       setLocalError('Failed to load DSK list: ' + err.message)
     } finally {
@@ -44,7 +59,8 @@ function MessageSigning() {
     const handleDSKUpdate = (event) => {
       const { newDSK, allDSKs } = event.detail
       console.log('MessageSigning received DSK update:', newDSK)
-      setDskList(allDSKs)
+      // 重新載入 DSK 列表以確保數據格式一致
+      loadDSKList()
     }
 
     window.addEventListener('dskUpdated', handleDSKUpdate)
@@ -76,48 +92,102 @@ function MessageSigning() {
       setLocalError('')
       clearError()
       
-      let signature
-      
-      if (signingMethod === 'dsk') {
-        if (selectedDSKIndex === '') {
-          setLocalError('Please select a DSK!')
-          return
-        }
-        
-        signature = await apiService.signMessage(message, parseInt(selectedDSKIndex))
-      } else {
-        if (selectedAddrIndex === '' || selectedKeyIndex === '') {
-          setLocalError('Please select both an address and a key!')
-          return
-        }
-        
-        signature = await apiService.post('/sign', {
-          message: message,
-          address_index: parseInt(selectedAddrIndex),
-          key_index: parseInt(selectedKeyIndex)
-        })
+      // Stealth 簽名只使用 DSK
+      if (selectedDSKIndex === '') {
+        setLocalError('Please select a DSK!')
+        return
       }
       
-      const signatureWithIndex = {
+      // 獲取選定的 DSK，使用 dsk_id 而不是 index
+      const selectedDSK = dskList[parseInt(selectedDSKIndex)]
+      if (!selectedDSK) {
+        setLocalError('Selected DSK not found!')
+        return
+      }
+      
+      const signature = await apiService.post('/sign', {
+        message: message,
+        dsk_id: selectedDSK.dsk_id  // 使用 dsk_id 而不是 index
+      })
+      
+      // 構造完整的交易 tx = (addr, R, m, σ)
+      console.log('Signature API response:', signature)
+      
+      // 獲取對應的地址數據
+      console.log('Current addresses array:', addresses)
+      console.log('Signature API response details:', {
+        addr_id: signature.addr_id,
+        dsk_id: signature.dsk_id,
+        sig_id: signature.sig_id
+      })
+      console.log('Signing method: DSK (stealth only)')  
+      console.log('Selected indices:', {
+        selectedAddrIndex,
+        selectedDSKIndex
+      })
+      
+      // 無論是 keypair 還是 DSK 簽名，都使用用戶明確選擇的 address
+      let addressData = addresses[parseInt(selectedAddrIndex)]
+      console.log('Using user-selected address index:', selectedAddrIndex)
+      console.log('Address data:', addressData)
+      
+      console.log('Found address data for transaction:', addressData)
+      
+      if (!addressData) {
+        console.warn('Address data not found, but proceeding with placeholder data for debugging')
+        // 創建臨時的地址數據用於調試
+        addressData = {
+          addr_hex: 'unknown_address',
+          r1_hex: 'unknown_r1', 
+          r2_hex: 'unknown_r2',
+          c_hex: 'unknown_c',
+          key_id: signature.key_id || 'unknown_key',
+          addr_id: signature.addr_id || 'unknown_addr_id'
+        }
+      }
+      
+      // 創建完整的交易對象
+      const transaction = {
+        // 交易核心數據 tx = (addr, R, m, σ)
+        message: message,  // m: 訊息
+        signature: {
+          q_sigma_hex: signature.q_sigma_hex || signature.signature?.q_sigma?.hex,  // σ.Q_σ
+          h_hex: signature.h_hex || signature.signature?.h?.hex  // σ.H
+        },
+        address: {
+          addr_hex: addressData.addr_hex,  // addr: 簽名地址
+          r1_hex: addressData.r1_hex,      // R.r1: 地址組件
+          r2_hex: addressData.r2_hex,      // R.r2: 地址組件  
+          c_hex: addressData.c_hex         // R.c: 地址組件
+        },
+        
+        // 元數據
+        signing_method: 'dsk',
+        sig_id: signature.sig_id,
+        dsk_id: signature.dsk_id,
+        addr_id: signature.addr_id,
+        key_id: addressData.key_id,
+        scheme: activeScheme
+      }
+      
+      // 添加到 global txlist
+      const addedTransaction = addTransaction(transaction)
+      console.log('Transaction added to global txlist:', addedTransaction)
+      
+      // 添加到本地簽名列表（用於顯示）
+      const signatureForDisplay = {
         ...signature,
-        index: signatureList.length,
-        timestamp: new Date().toISOString(),
-        // 添加地址信息以便創建完整交易
-        address_index: signingMethod === 'keypair' ? parseInt(selectedAddrIndex) : undefined,
-        key_index: signingMethod === 'keypair' ? parseInt(selectedKeyIndex) : undefined
+        method: 'dsk',
+        q_sigma_hex: signature.q_sigma_hex || signature.signature?.q_sigma?.hex,
+        h_hex: signature.h_hex || signature.signature?.h?.hex,
+        tx_id: addedTransaction.id  // 關聯到交易 ID
       }
       
-      setSignatureList(prev => [...prev, signatureWithIndex])
-      
-      // 通知Signature Verification組件有新簽名
-      console.log('MessageSigning dispatching signatureCreated event:', signatureWithIndex)
-      window.dispatchEvent(new CustomEvent('signatureCreated', { 
-        detail: { signature: signatureWithIndex }
-      }))
+      setSignatureList(prev => [...prev, signatureForDisplay])
       
       // 通知DSK組件
       window.dispatchEvent(new CustomEvent('dskUpdated', { 
-        detail: { newDSK: signatureWithIndex, allDSKs: [...dskList, signatureWithIndex] }
+        detail: { newDSK: signatureForDisplay, allDSKs: [...dskList, signatureForDisplay] }
       }))
       
     } catch (err) {
@@ -125,7 +195,7 @@ function MessageSigning() {
     } finally {
       setLocalLoading(prev => ({ ...prev, signing: false }))
     }
-  }, [message, signingMethod, selectedDSKIndex, selectedAddrIndex, selectedKeyIndex, signatureList.length, clearError])
+  }, [message, selectedDSKIndex, selectedAddrIndex, signatureList.length, clearError])
 
   // 點擊簽名項目
   const handleSignatureClick = useCallback((index) => {
@@ -133,6 +203,19 @@ function MessageSigning() {
   }, [])
 
   const getOutputContent = () => {
+    // 使用 scheme-specific 的 Display 組件
+    const MessageSigningDisplay = getDisplayComponent(activeScheme, 'MessageSigningDisplay')
+    if (MessageSigningDisplay) {
+      return MessageSigningDisplay({
+        signatureList,
+        selectedSignatureIndex: selectedSigIndex,
+        onSignatureClick: handleSignatureClick,
+        localError,
+        globalError
+      })
+    }
+    
+    // fallback to default sitaiba display
     const error = localError || globalError
     if (error) {
       return `Error: ${error}`
@@ -196,67 +279,50 @@ ${sig.dsk_hex}` : ''}`
           placeholder="Enter your message here..."
         />
         
-        <label>Signing Method:</label>
+        <label>Select Address to Sign For:</label>
         <Select
-          value={signingMethod}
-          onChange={(e) => setSigningMethod(e.target.value)}
+          value={selectedAddrIndex}
+          onChange={(e) => {
+            setSelectedAddrIndex(e.target.value)
+            setSelectedDSKIndex('') // 重置 DSK 選擇
+          }}
         >
-          <option value="keypair">Use Key Pair (Address + Key)</option>
-          <option value="dsk">Use DSK (One-time Secret Key)</option>
+          <option value="">Select an address...</option>
+          {addresses.map((addr, index) => (
+            <option key={addr.id} value={index}>
+              {addr.id} - Owner: {addr.key_id} - {truncateHex(addr.addr_hex, 8)}
+            </option>
+          ))}
         </Select>
         
-        {signingMethod === 'keypair' ? (
-          <>
-            <label>Select Address:</label>
-            <Select
-              value={selectedAddrIndex}
-              onChange={(e) => setSelectedAddrIndex(e.target.value)}
-            >
-              <option value="">Select an address...</option>
-              {addresses.map((addr, index) => (
-                <option key={addr.id} value={index}>
-                  {addr.id} - Owner: {addr.key_id} - {truncateHex(addr.addr_hex, 8)}
-                </option>
-              ))}
-            </Select>
-            
-            <label>Select Key:</label>
-            <Select
-              value={selectedKeyIndex}
-              onChange={(e) => setSelectedKeyIndex(e.target.value)}
-            >
-              <option value="">Select a key...</option>
-              {keys.map((key, index) => (
-                <option key={key.id} value={index}>
-                  {key.id} - A: {truncateHex(key.A_hex, 8)}
-                </option>
-              ))}
-            </Select>
-          </>
-        ) : (
-          <>
-            <label>Select DSK:</label>
-            <Select
-              value={selectedDSKIndex}
-              onChange={(e) => setSelectedDSKIndex(e.target.value)}
-            >
-              <option value="">
-                {dskList.length === 0 ? 'No DSKs available - Generate one first' : 'Select a DSK...'}
+        <label>Select DSK for this Address:</label>
+        <Select
+          value={selectedDSKIndex}
+          onChange={(e) => setSelectedDSKIndex(e.target.value)}
+          disabled={selectedAddrIndex === ''}
+        >
+          <option value="">
+            {selectedAddrIndex === '' ? 'Select an address first' : 
+             'Select a DSK for this address...'}
+          </option>
+          {selectedAddrIndex !== '' && dskList
+            .filter(dsk => {
+              const selectedAddr = addresses[parseInt(selectedAddrIndex)]
+              return dsk.addr_id === selectedAddr?.addr_id || 
+                     dsk.address_id === selectedAddr?.id
+            })
+            .map((dsk, index) => (
+              <option key={dsk.id} value={dskList.indexOf(dsk)}>
+                {dsk.id} - {truncateHex(dsk.dsk_hex, 8)}
               </option>
-              {dskList.map((dsk, index) => (
-                <option key={dsk.id} value={index}>
-                  {dsk.id} - For: {dsk.address_id} - {truncateHex(dsk.dsk_hex, 8)}
-                </option>
-              ))}
-            </Select>
-          </>
-        )}
+            ))}
+        </Select>
         
         <div className="inline-controls">
           <Button
             onClick={handleSignMessage}
             loading={localLoading.signing}
-            disabled={localLoading.signing || !message.trim()}
+            disabled={localLoading.signing || !message.trim() || selectedAddrIndex === '' || selectedDSKIndex === ''}
           >
             Sign Message
           </Button>

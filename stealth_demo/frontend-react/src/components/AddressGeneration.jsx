@@ -3,8 +3,9 @@ import { Section, Button, Select, DataList, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
+import { getDisplayComponent } from './displays'
 
-function AddressGeneration() {
+function AddressGeneration({ activeScheme }) {
   const { 
     keys, 
     addresses, 
@@ -53,55 +54,57 @@ function AddressGeneration() {
   }, [])
 
   const getOutputContent = () => {
+    // 使用 scheme-specific 的 Display 組件
+    const AddressDisplay = getDisplayComponent(activeScheme, 'AddressDisplay')
+    if (AddressDisplay) {
+      return AddressDisplay({
+        addresses,
+        selectedIndex: selectedAddrIndex,
+        onAddressClick: handleAddressClick,
+        localError,
+        globalError
+      })
+    }
+    
+    // fallback to default display
     const error = localError || globalError
     if (error) {
       return `Error: ${error}`
     }
     
-    if (selectedAddrIndex >= 0 && addresses[selectedAddrIndex]) {
-      const addr = addresses[selectedAddrIndex]
-      return `🔍 Address Details - ${addr.id}
-🆔 Index: ${selectedAddrIndex}
-👤 Owner Key: ${addr.key_id} (Index: ${addr.key_index})
-📊 Status: ${addr.status}
-
-🏠 Address:
-${addr.addr_hex}
-
-🎲 R1:
-${addr.r1_hex}
-
-🎲 R2:
-${addr.r2_hex}
-
-🔒 C:
-${addr.c_hex}`
-    }
-    
-    // 顯示最新生成的地址信息
     if (addresses.length > 0) {
       const latestAddr = addresses[addresses.length - 1]
       return `✅ Address Generated Successfully!
 🆔 Address ID: ${latestAddr.id}
 👤 Owner Key: ${latestAddr.key_id}
-🏠 Address: ${truncateHex(latestAddr.addr_hex)}
-🎲 R1: ${truncateHex(latestAddr.r1_hex)}
-🎲 R2: ${truncateHex(latestAddr.r2_hex)}
-🔒 C: ${truncateHex(latestAddr.c_hex)}`
+🏠 Address: ${truncateHex(latestAddr.addr_hex)}`
     }
     
     return ''
   }
 
-  const addressItems = addresses.map((addr, index) => ({
-    id: addr.id,
-    header: `${addr.id} (Owner: ${addr.key_id})`,
-    details: [
-      `${truncateHex(addr.addr_hex, 20)}`
-    ],
-    selected: index === selectedAddrIndex,
-    onClick: () => handleAddressClick(index)
-  }))
+  const getAddressItems = () => {
+    // 使用 scheme-specific 的 List Items 組件
+    const AddressListItems = getDisplayComponent(activeScheme, 'AddressListItems')
+    if (AddressListItems) {
+      return AddressListItems({
+        addresses,
+        selectedIndex: selectedAddrIndex,
+        onAddressClick: handleAddressClick
+      })
+    }
+    
+    // fallback to default items
+    return addresses.map((addr, index) => ({
+      id: addr.id,
+      header: `${addr.id} (Owner: ${addr.key_id})`,
+      details: [
+        `${truncateHex(addr.addr_hex, 20)}`
+      ],
+      selected: index === selectedAddrIndex,
+      onClick: () => handleAddressClick(index)
+    }))
+  }
 
   return (
     <Section title="📧 Address Generation">
@@ -137,7 +140,7 @@ ${addr.c_hex}`
         </div>
       </div>
       
-      <DataList items={addressItems} />
+      <DataList items={getAddressItems()} />
       
       <Output 
         content={getOutputContent()}

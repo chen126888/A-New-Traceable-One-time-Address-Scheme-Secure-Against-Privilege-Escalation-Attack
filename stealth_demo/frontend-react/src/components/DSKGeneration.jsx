@@ -3,8 +3,9 @@ import { Section, Button, Select, DataList, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
+import { getDisplayComponent } from './displays'
 
-function DSKGeneration() {
+function DSKGeneration({ activeScheme }) {
   const { 
     keys, 
     addresses, 
@@ -67,7 +68,19 @@ function DSKGeneration() {
         parseInt(selectedKeyIndex)
       )
       
-      setDskList(prev => [...prev, newDSK])
+      // 標準化 DSK 數據格式，處理不同 scheme 的差異
+      const normalizedDSK = {
+        ...newDSK,
+        // 確保有統一的 id 字段
+        id: newDSK.id || `dsk_${newDSK.dsk_id ?? Date.now()}`,
+        // 為 stealth DSK 添加平坦化的字段以便顯示
+        dsk_hex: newDSK.dsk_hex || newDSK.dsk?.hex,
+        // 確保有正確的 address_id 和 key_id 字段
+        address_id: newDSK.address_id || newDSK.addr_id,
+        key_id: newDSK.key_id
+      }
+      
+      setDskList(prev => [...prev, normalizedDSK])
       
       // 通知其他組件DSK已更新
       notifyDSKUpdate(newDSK)
@@ -85,6 +98,19 @@ function DSKGeneration() {
   }, [])
 
   const getOutputContent = () => {
+    // 使用 scheme-specific 的 Display 組件
+    const DSKDisplay = getDisplayComponent(activeScheme, 'DSKDisplay')
+    if (DSKDisplay) {
+      return DSKDisplay({
+        dskList,
+        selectedDSKIndex,
+        onDSKClick: handleDSKClick,
+        localError,
+        globalError
+      })
+    }
+    
+    // fallback to default sitaiba display
     const error = localError || globalError
     if (error) {
       return `Error: ${error}`
@@ -126,17 +152,30 @@ ${dsk.owner_B}`
     return ''
   }
 
-  const dskItems = dskList.map((dsk, index) => ({
-    id: dsk.id,
-    header: `${dsk.id} (For: ${dsk.address_id})`,
-    details: [
-      `Key: ${dsk.key_id}`,
-      `Method: ${dsk.method}`,
-      `DSK: ${truncateHex(dsk.dsk_hex, 16)}`
-    ],
-    selected: index === selectedDSKIndex,
-    onClick: () => handleDSKClick(index)
-  }))
+  const getDSKItems = () => {
+    // 使用 scheme-specific 的 List Items 組件
+    const DSKListItems = getDisplayComponent(activeScheme, 'DSKListItems')
+    if (DSKListItems) {
+      return DSKListItems({
+        dskList,
+        selectedIndex: selectedDSKIndex,
+        onDSKClick: handleDSKClick
+      })
+    }
+    
+    // fallback to default sitaiba format
+    return dskList.map((dsk, index) => ({
+      id: dsk.id,
+      header: `${dsk.id} (For: ${dsk.address_id})`,
+      details: [
+        `Key: ${dsk.key_id}`,
+        `Method: ${dsk.method}`,
+        `DSK: ${truncateHex(dsk.dsk_hex, 16)}`
+      ],
+      selected: index === selectedDSKIndex,
+      onClick: () => handleDSKClick(index)
+    }))
+  }
 
   return (
     <Section title="🔐 DSK Generation">
@@ -193,7 +232,7 @@ ${dsk.owner_B}`
         </div>
       </div>
       
-      <DataList items={dskItems} />
+      <DataList items={getDSKItems()} />
       
       <Output 
         content={getOutputContent()}

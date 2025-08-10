@@ -3,18 +3,18 @@ import { Section, Button, Select, Input, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex, isValidHex } from '../utils/helpers'
+import { getDisplayComponent } from './displays'
 
-function SignatureVerification() {
+function SignatureVerification({ activeScheme }) {
   const { 
-    addresses, 
+    transactions,  // 使用 global transactions 列表
+    addresses,     // 需要 addresses 用於 fallback API
     loading: globalLoading, 
     error: globalError, 
-    clearError,
-    loadAddresses
+    clearError
   } = useAppData()
   
   const [selectedTxIndex, setSelectedTxIndex] = useState('')
-  const [txMessages, setTxMessages] = useState([])
   const [useManualInput, setUseManualInput] = useState(false)
   const [manualTxData, setManualTxData] = useState({
     message: '',
@@ -28,90 +28,12 @@ function SignatureVerification() {
   const [localLoading, setLocalLoading] = useState({})
   const [localError, setLocalError] = useState('')
 
-  // 載入交易訊息列表
-  const loadTxMessages = useCallback(async () => {
-    try {
-      setLocalLoading(prev => ({ ...prev, loadingTx: true }))
-      // 這裡應該從後端獲取完整的交易訊息列表
-      // 目前先用空數組，實際應該有 /tx_messages 端點
-      const response = await apiService.get('/tx_messages').catch(() => ({ data: [] }))
-      setTxMessages(response || [])
-    } catch (err) {
-      setLocalError('Failed to load transaction messages: ' + err.message)
-    } finally {
-      setLocalLoading(prev => ({ ...prev, loadingTx: false }))
-    }
-  }, [])
-
-  // 監聽簽名事件來創建完整的交易訊息
-  useEffect(() => {
-    const handleSignatureCreated = (event) => {
-      console.log('Signature Verification received signature:', event.detail)
-      const { signature } = event.detail
-      
-      // 找到對應的地址數據
-      let addressData = null
-      if (signature.address_index !== undefined) {
-        addressData = addresses[signature.address_index]
-      } else if (signature.address_id) {
-        addressData = addresses.find(addr => addr.id === signature.address_id)
-      }
-      
-      console.log('Found address data:', addressData)
-      
-      if (addressData) {
-        // 創建完整的交易訊息 tx = (addr, R, m, σ)
-        const txMessage = {
-          id: `tx_${Date.now()}`,
-          index: txMessages.length,
-          timestamp: new Date().toISOString(),
-          
-          // 交易組件
-          message: signature.message,                    // m: 原始訊息
-          signature: {
-            q_sigma_hex: signature.q_sigma_hex,         // σ.Q_σ: 簽名組件1
-            h_hex: signature.h_hex                      // σ.H: 簽名組件2
-          },
-          address: {
-            addr_hex: addressData.addr_hex,             // addr: 簽名地址
-            r2_hex: addressData.r2_hex,                 // R.r2: 地址組件
-            c_hex: addressData.c_hex,                   // R.c: 地址組件
-            owner_id: addressData.key_id                // 地址擁有者ID
-          },
-          
-          // 元數據
-          signing_method: signature.method,
-          status: 'pending_verification'
-        }
-        
-        console.log('Creating transaction message:', txMessage)
-        setTxMessages(prev => {
-          const updated = [...prev, txMessage]
-          console.log('Updated tx messages:', updated)
-          return updated
-        })
-      } else {
-        console.warn('No address data found for signature:', signature)
-      }
-    }
-
-    // 先載入現有數據
-    loadTxMessages()
-    
-    // 然後監聽新事件
-    window.addEventListener('signatureCreated', handleSignatureCreated)
-
-    return () => {
-      window.removeEventListener('signatureCreated', handleSignatureCreated)
-    }
-  }, [loadTxMessages, addresses]) // 移除 txMessages.length 依賴以避免循環
-
-  // 刷新數據
-  const handleRefreshData = useCallback(async () => {
+  // 簡化的刷新數據函數
+  const handleRefreshData = useCallback(() => {
     setLocalError('')
     clearError()
-    await Promise.all([loadAddresses(), loadTxMessages()])
-  }, [loadAddresses, loadTxMessages, clearError])
+    // transactions 會自動從 global state 更新，不需要手動載入
+  }, [clearError])
 
 
 
@@ -173,7 +95,7 @@ function SignatureVerification() {
         return
       }
       
-      txData = txMessages[parseInt(selectedTxIndex)]
+      txData = transactions[parseInt(selectedTxIndex)]
       if (!txData) {
         setLocalError('Invalid transaction selection!')
         return
@@ -181,63 +103,62 @@ function SignatureVerification() {
     }
 
     console.log('Transaction data to verify:', txData)
+    
+    // 檢查交易數據是否完整
+    if (txData.status === 'incomplete_address_data' || 
+        txData.address.addr_hex === 'unknown' ||
+        txData.address.r2_hex === 'unknown' ||
+        txData.address.c_hex === 'unknown') {
+      setLocalError('Cannot verify transaction: Address data is incomplete. Please refresh data and try again.')
+      return
+    }
 
     try {
       setLocalLoading(prev => ({ ...prev, verifying: true }))
       setLocalError('')
       clearError()
       
-      // 嘗試使用新的交易驗證API
-      let result
-      try {
-        console.log('Trying new transaction verification API...')
-        result = await apiService.post('/verify_transaction', {
-          message: txData.message,
-          q_sigma_hex: txData.signature.q_sigma_hex,
-          h_hex: txData.signature.h_hex,
-          addr_hex: txData.address.addr_hex,
-          r2_hex: txData.address.r2_hex,
-          c_hex: txData.address.c_hex
-        })
-        console.log('New API result:', result)
-      } catch (newApiError) {
-        console.log('New API failed, trying fallback:', newApiError.message)
-        
-        // 後退方案：找到對應的地址索引並使用舊API
-        const addressIndex = addresses.findIndex(addr => 
-          addr.addr_hex === txData.address.addr_hex
-        )
-        
-        if (addressIndex >= 0) {
-          console.log('Using fallback API with address index:', addressIndex)
-          result = await apiService.verifySignature(
-            txData.message,
-            txData.signature.q_sigma_hex,
-            txData.signature.h_hex,
-            addressIndex
-          )
-          console.log('Fallback API result:', result)
-          result.fallback_method = true
-        } else {
-          throw new Error('Cannot find matching address for verification')
-        }
-      }
+      // 直接使用交易中的資料進行驗證，不需要查找地址索引
+      console.log('Using verifySignatureWithTxData API with transaction data')
+      console.log('Transaction address data:', txData.address)
+      console.log('Verification parameters:', {
+        message: txData.message,
+        q_sigma_hex: txData.signature.q_sigma_hex,
+        h_hex: txData.signature.h_hex,
+        addr_hex: txData.address.addr_hex,
+        r2_hex: txData.address.r2_hex,
+        c_hex: txData.address.c_hex
+      })
+      console.log('Signature data:', txData.signature)
       
-      setVerificationResult({
+      const result = await apiService.verifySignatureWithTxData({
+        message: txData.message,
+        q_sigma_hex: txData.signature.q_sigma_hex,
+        h_hex: txData.signature.h_hex,
+        addr_hex: txData.address.addr_hex,
+        r2_hex: txData.address.r2_hex,
+        c_hex: txData.address.c_hex
+      })
+      console.log('Verify signature API raw result:', result)
+      console.log('Result properties:', Object.keys(result))
+      console.log('Result.valid:', result.valid)
+      console.log('Result.is_valid:', result.is_valid)
+      console.log('Result.status:', result.status)
+      
+      // 標準化結果，確保有 valid 字段
+      const normalizedResult = {
         ...result,
+        valid: result.valid ?? result.is_valid,  // 處理不同 API 返回格式
         timestamp: new Date().toISOString(),
         transaction_data: txData,
         verification_type: useManualInput ? 'manual' : 'auto'
-      })
-      
-      // 更新交易狀態
-      if (!useManualInput && selectedTxIndex !== '') {
-        setTxMessages(prev => prev.map((tx, index) => 
-          index === parseInt(selectedTxIndex) 
-            ? { ...tx, status: result.valid ? 'verified' : 'invalid' }
-            : tx
-        ))
       }
+      
+      console.log('Normalized verification result:', normalizedResult)
+      setVerificationResult(normalizedResult)
+      
+      // 注意：在這個新架構中，我們不再更新本地狀態
+      // 如果需要更新交易狀態，應該通過 global state management 來處理
       
       console.log('Verification completed:', result)
       
@@ -248,9 +169,22 @@ function SignatureVerification() {
     } finally {
       setLocalLoading(prev => ({ ...prev, verifying: false }))
     }
-  }, [useManualInput, manualTxData, selectedTxIndex, txMessages, addresses, clearError])
+  }, [useManualInput, manualTxData, selectedTxIndex, transactions, clearError])
 
   const getOutputContent = () => {
+    // 使用 scheme-specific 的 Display 組件
+    const SignatureVerificationDisplay = getDisplayComponent(activeScheme, 'SignatureVerificationDisplay')
+    if (SignatureVerificationDisplay) {
+      return SignatureVerificationDisplay({
+        verificationResult,
+        transactions,
+        selectedTxIndex,
+        localError,
+        globalError
+      })
+    }
+    
+    // fallback to default sitaiba display
     const error = localError || globalError
     if (error) {
       return `Error: ${error}`
@@ -264,7 +198,7 @@ function SignatureVerification() {
 ✅ Verification Result: ${verificationResult.valid ? '✅ VALID' : '❌ INVALID'}
 📊 Status: ${verificationResult.status}
 ⏰ Verified at: ${verificationResult.timestamp}
-🛠️ Method: ${verificationResult.verification_type}${verificationResult.fallback_method ? ' (fallback)' : ''}
+🛠️ Method: ${verificationResult.verification_type}
 
 📋 Transaction Components (addr, R, m, σ):
 🏠 Address (addr): ${truncateHex(txData.address.addr_hex, 20)}
@@ -282,7 +216,7 @@ ${verificationResult.valid ?
 }`
     }
     
-    if (txMessages.length === 0) {
+    if (transactions.length === 0) {
       return `📋 About Transaction Verification:
 This verifies complete transaction messages in the format:
 tx = (addr, R, m, σ) where:
@@ -322,12 +256,12 @@ tx = (addr, R, m, σ) where:
               onChange={(e) => setSelectedTxIndex(e.target.value)}
             >
               <option value="">
-                {txMessages.length === 0 
+                {transactions.length === 0 
                   ? 'No transactions available - Sign a message first'
                   : 'Select a transaction to verify...'
                 }
               </option>
-              {txMessages.map((tx, index) => (
+              {transactions.map((tx, index) => (
                 <option key={tx.id || index} value={index}>
                   Tx {index}: "{tx.message?.substring(0, 25)}{tx.message?.length > 25 ? '...' : ''}" 
                   - {tx.signing_method} - {tx.status}
@@ -335,13 +269,13 @@ tx = (addr, R, m, σ) where:
               ))}
             </Select>
             
-            {selectedTxIndex !== '' && txMessages[parseInt(selectedTxIndex)] && (
+            {selectedTxIndex !== '' && transactions[parseInt(selectedTxIndex)] && (
               <div className="tx-preview">
                 <strong>📋 Transaction Preview:</strong>
-                <div>🏠 Address: {truncateHex(txMessages[parseInt(selectedTxIndex)].address?.addr_hex, 16)}</div>
-                <div>📝 Message: "{txMessages[parseInt(selectedTxIndex)].message}"</div>
-                <div>✍️ Signature: {truncateHex(txMessages[parseInt(selectedTxIndex)].signature?.q_sigma_hex, 16)}</div>
-                <div>📊 Status: {txMessages[parseInt(selectedTxIndex)].status}</div>
+                <div>🏠 Address: {truncateHex(transactions[parseInt(selectedTxIndex)].address?.addr_hex, 16)}</div>
+                <div>📝 Message: "{transactions[parseInt(selectedTxIndex)].message}"</div>
+                <div>✍️ Signature: {truncateHex(transactions[parseInt(selectedTxIndex)].signature?.q_sigma_hex, 16)}</div>
+                <div>📊 Status: {transactions[parseInt(selectedTxIndex)].status}</div>
               </div>
             )}
           </>
@@ -405,8 +339,7 @@ tx = (addr, R, m, σ) where:
           
           <Button
             onClick={() => {
-              console.log('Current txMessages:', txMessages)
-              console.log('Current addresses:', addresses)
+              console.log('Current transactions:', transactions)
             }}
             variant="secondary"
           >

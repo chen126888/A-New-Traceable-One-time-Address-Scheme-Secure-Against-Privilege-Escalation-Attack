@@ -88,6 +88,17 @@ class ApiService {
     })
   }
 
+  async verifySignatureWithTxData(txData) {
+    return this.post('/verify_signature', {
+      message: txData.message,
+      q_sigma_hex: txData.q_sigma_hex,
+      h_hex: txData.h_hex,
+      addr_hex: txData.addr_hex,
+      r2_hex: txData.r2_hex,
+      c_hex: txData.c_hex,
+    })
+  }
+
   async traceIdentity(addressIndex) {
     return this.post('/trace', { address_index: addressIndex })
   }

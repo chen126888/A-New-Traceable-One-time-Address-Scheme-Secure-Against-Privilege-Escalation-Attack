@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { Section, Button, Input, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
+import SitaibaPerformanceDisplay from './displays/SitaibaPerformanceDisplay'
 
 function PerformanceTest() {
   const { 
@@ -121,15 +122,7 @@ function PerformanceTest() {
 
 🔐 One-time Secret Key Generation: ${result.onetime_sk_ms}ms
    ├─ DSK derivation from address
-   └─ Required for signing operations
-
-✍️ Message Signing: ${result.sign_ms}ms
-   ├─ Cryptographic signature generation
-   └─ Includes random nonce generation
-
-✅ Signature Verification: ${result.sig_verify_ms}ms
-   ├─ Pairing-based verification
-   └─ Mathematical proof validation
+   └─ Required for transaction operations
 
 🔍 Identity Tracing: ${result.trace_ms}ms
    ├─ Recover identity from address
@@ -138,22 +131,28 @@ function PerformanceTest() {
 📊 Performance Analysis:
    Fastest Operation: ${fastestOp}
    Slowest Operation: ${slowestOp}
-   Total Cycle Time: ${(result.addr_gen_ms + result.fast_verify_ms + result.onetime_sk_ms + result.sign_ms + result.sig_verify_ms + result.trace_ms).toFixed(3)}ms`
+   Total Cycle Time: ${(result.addr_gen_ms + result.addr_verify_ms + result.fast_verify_ms + result.onetime_sk_ms + result.trace_ms).toFixed(3)}ms`
     }
     
     if (testResults.length > 0) {
       const latestResult = testResults[testResults.length - 1]
-      return `✅ Performance Test Completed!
+      const totalCoreTime = (latestResult.addr_gen_ms + latestResult.addr_verify_ms + 
+                            latestResult.fast_verify_ms + latestResult.onetime_sk_ms + 
+                            latestResult.trace_ms).toFixed(3)
+      
+      return `✅ SITAIBA Performance Test Completed!
 🔄 Iterations: ${latestResult.iterations}
-⚡ Total Time: ${latestResult.total_test_time}ms
-📊 Avg/Iteration: ${latestResult.avg_per_iteration.toFixed(2)}ms
+📊 Status: ${latestResult.status}
 
-Key Metrics:
-• Address Gen: ${latestResult.addr_gen_ms}ms
-• Fast Verify: ${latestResult.fast_verify_ms}ms  
-• Signing: ${latestResult.sign_ms}ms
-• Verification: ${latestResult.sig_verify_ms}ms
-• Tracing: ${latestResult.trace_ms}ms`
+Key Metrics (Average per iteration):
+• 🏠 Address Generation: ${latestResult.addr_gen_ms}ms
+• 🔍 Address Verification: ${latestResult.addr_verify_ms}ms
+• ⚡ Fast Address Verification: ${latestResult.fast_verify_ms}ms
+• 🔑 One-time Secret Key Gen: ${latestResult.onetime_sk_ms}ms
+• 🕵️ Identity Tracing: ${latestResult.trace_ms}ms
+
+Total Core Operations Time: ${totalCoreTime}ms per iteration
+${latestResult.note || 'All times exclude hash computation overhead'}`
     }
     
     return 'Configure test parameters and run performance analysis...'
@@ -163,10 +162,9 @@ Key Metrics:
   const getFastestOperation = (result) => {
     const operations = {
       'Address Generation': result.addr_gen_ms,
+      'Address Verification': result.addr_verify_ms,
       'Fast Verification': result.fast_verify_ms,
       'One-time SK': result.onetime_sk_ms,
-      'Signing': result.sign_ms,
-      'Sig Verification': result.sig_verify_ms,
       'Tracing': result.trace_ms
     }
     
@@ -179,11 +177,9 @@ Key Metrics:
   const getSlowestOperation = (result) => {
     const operations = {
       'Address Generation': result.addr_gen_ms,
-      'Full Verification': result.addr_verify_ms,
+      'Address Verification': result.addr_verify_ms,
       'Fast Verification': result.fast_verify_ms,
       'One-time SK': result.onetime_sk_ms,
-      'Signing': result.sign_ms,
-      'Sig Verification': result.sig_verify_ms,
       'Tracing': result.trace_ms
     }
     
@@ -281,34 +277,9 @@ Key Metrics:
       </div>
       
       {testResults.length > 0 && (
-        <div className="performance-grid">
+        <div className="performance-display">
           {selectedResultIndex >= 0 && testResults[selectedResultIndex] && (
-            <>
-              <div className="perf-metric">
-                <div className="perf-value">{testResults[selectedResultIndex].addr_gen_ms}ms</div>
-                <div className="perf-label">Address Gen</div>
-              </div>
-              <div className="perf-metric">
-                <div className="perf-value">{testResults[selectedResultIndex].fast_verify_ms}ms</div>
-                <div className="perf-label">Fast Verify</div>
-              </div>
-              <div className="perf-metric">
-                <div className="perf-value">{testResults[selectedResultIndex].sign_ms}ms</div>
-                <div className="perf-label">Signing</div>
-              </div>
-              <div className="perf-metric">
-                <div className="perf-value">{testResults[selectedResultIndex].sig_verify_ms}ms</div>
-                <div className="perf-label">Sig Verify</div>
-              </div>
-              <div className="perf-metric">
-                <div className="perf-value">{testResults[selectedResultIndex].trace_ms}ms</div>
-                <div className="perf-label">Tracing</div>
-              </div>
-              <div className="perf-metric">
-                <div className="perf-value">{testResults[selectedResultIndex].total_test_time}ms</div>
-                <div className="perf-label">Total Time</div>
-              </div>
-            </>
+            <SitaibaPerformanceDisplay data={testResults[selectedResultIndex]} />
           )}
         </div>
       )}

@@ -1,18 +1,16 @@
 """
-Main application file for the stealth demo server.
-Refactored version with modular architecture.
+Multi-scheme application file for the stealth demo server.
+Supports multiple cryptographic schemes with plugin architecture.
 """
 from flask import Flask, send_from_directory
 import traceback
 from flask import jsonify
 
-from config import config
-from library_wrapper import stealth_lib
-from routes import setup_routes
+from multi_scheme_routes import setup_multi_scheme_routes
 
 
-def create_app():
-    """Create and configure the Flask application."""
+def create_multi_scheme_app():
+    """Create and configure the multi-scheme Flask application."""
     app = Flask(__name__, static_folder="../frontend")
     
     # Setup global error handler
@@ -34,29 +32,33 @@ def create_app():
     def index():
         return send_from_directory("../frontend", "index.html")
     
-    # Setup all API routes
-    setup_routes(app)
+    # Setup all multi-scheme API routes
+    setup_multi_scheme_routes(app)
     
     return app
 
 
 def main():
-    """Main function to run the application."""
-    app = create_app()
+    """Main function to run the multi-scheme application."""
+    app = create_multi_scheme_app()
     
-    print("🚀 Starting Interactive Stealth Demo Server")
-    print("🎯 Features: Selectable inputs for all operations")
-    print("💡 New: DSK generation, parameter file selection, flexible verification")
+    print("🚀 Starting Multi-Scheme Crypto Demo Server")
+    print("🎯 Features: Multiple cryptographic schemes with plugin architecture")
+    print("🔧 Capabilities: Dynamic scheme switching, modular operations")
     print("🌐 Server will run on http://localhost:5000")
-    print(f"📦 DSK functions available: {stealth_lib.dsk_functions_available}")
+    print("")
+    print("📋 Available API endpoints:")
+    print("   GET  /api/schemes - List available schemes")
+    print("   POST /api/schemes/activate - Activate a scheme")
+    print("   GET  /api/status - Get system status")
+    print("   POST /api/setup - Initialize active scheme")
+    print("   GET  /api/param_files - Get parameter files")
+    print("   ... (operation endpoints based on active scheme capabilities)")
     
     try:
         app.run(debug=True, host='0.0.0.0', port=5000)
     except KeyboardInterrupt:
-        print("\n🛑 Server stopped")
-        if config.system_initialized:
-            stealth_lib.cleanup()
-            print("🧹 Library cleanup completed")
+        print("\n🛑 Multi-scheme server stopped")
 
 
 if __name__ == "__main__":

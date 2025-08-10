@@ -3,8 +3,9 @@ import { Section, Button, Select, Output } from './common'
 import { apiService } from '../services/apiService'
 import { useAppData } from '../hooks/useAppData'
 import { truncateHex } from '../utils/helpers'
+import { getDisplayComponent } from './displays'
 
-function AddressVerification() {
+function AddressVerification({ activeScheme }) {
   const { keys, addresses, loadAllData, loading: globalLoading, error: globalError, setError } = useAppData()
   const [selectedKeyIndex, setSelectedKeyIndex] = useState('')
   const [selectedAddrIndex, setSelectedAddrIndex] = useState('')
@@ -45,6 +46,21 @@ function AddressVerification() {
   }
 
   const getOutputContent = () => {
+    // 使用 scheme-specific 的 Display 組件
+    const AddressVerificationDisplay = getDisplayComponent(activeScheme, 'AddressVerificationDisplay')
+    if (AddressVerificationDisplay) {
+      return AddressVerificationDisplay({
+        verificationResult,
+        addresses,
+        keys,
+        selectedAddrIndex,
+        selectedKeyIndex,
+        localError,
+        globalError
+      })
+    }
+    
+    // fallback to default sitaiba display
     const error = localError || globalError
     if (error) {
       return `Error: ${error}`
