@@ -1,10 +1,10 @@
 /****************************************************************************
- * File: my_scheme_core.h
+ * File: stealth_core.h
  * Desc: Core cryptographic functions for Traceable Anonymous Transaction Scheme
  ****************************************************************************/
 
-#ifndef MY_SCHEME_CORE_H
-#define MY_SCHEME_CORE_H
+#ifndef STEALTH_CORE_H
+#define STEALTH_CORE_H
 
 #include <pbc/pbc.h>
 
@@ -13,16 +13,12 @@
 //----------------------------------------------
 typedef struct {
     double addr_gen_avg;
-    double addr_verify_avg;
-    double fast_verify_avg;
+    double addr_recognize_avg;
+    double fast_recognize_avg;
     double onetime_sk_avg;
     double sign_avg;
     double verify_avg;
     double trace_avg;
-    double h1_avg;
-    double h2_avg;
-    double h3_avg;
-    double h4_avg;
     int operation_count;
 } stealth_performance_t;
 
@@ -52,6 +48,11 @@ void stealth_cleanup(void);
  * Reset performance counters
  */
 void stealth_reset_performance(void);
+
+/**
+ * Performance counter (exposed for external access)
+ */
+extern int perf_counter;
 
 /**
  * Get the current pairing for use in API functions
@@ -93,30 +94,30 @@ void stealth_addr_gen(element_t Addr, element_t R1, element_t R2, element_t C,
                      element_t A_r, element_t B_r, element_t TK);
 
 /**
- * Verify address (full version)
- * @param Addr Address to verify
+ * Recognize address (full version)
+ * @param Addr Address to recognize
  * @param R1 Random element R1
  * @param B_r Public key B
  * @param A_r Public key A
  * @param C Commitment C
  * @param aZ Private key a
  * @param TK Trace public key
- * @return 1 if valid, 0 otherwise
+ * @return 1 if recognized, 0 otherwise
  */
-int stealth_addr_verify(element_t Addr, element_t R1, element_t B_r,
-                       element_t A_r, element_t C, element_t aZ, element_t TK);
+int stealth_addr_recognize(element_t Addr, element_t R1, element_t B_r,
+                          element_t A_r, element_t C, element_t aZ, element_t TK);
 
 /**
- * Fast address verification
+ * Fast address recognition
  * @param R1 Random element R1
  * @param B_r Public key B
  * @param A_r Public key A
  * @param C Commitment C
  * @param aZ Private key a
- * @return 1 if valid, 0 otherwise
+ * @return 1 if recognized, 0 otherwise
  */
-int stealth_addr_verify_fast(element_t R1, element_t B_r, element_t A_r, 
-                            element_t C, element_t aZ);
+int stealth_addr_recognize_fast(element_t R1, element_t B_r, element_t A_r, 
+                               element_t C, element_t aZ);
 
 /**
  * Generate one-time secret key
@@ -223,4 +224,4 @@ int stealth_element_from_bytes_G1(element_t elem, const unsigned char* buf, int 
  */
 int stealth_element_from_bytes_Zr(element_t elem, const unsigned char* buf, int len);
 
-#endif /* MY_SCHEME_CORE_H */
+#endif /* STEALTH_CORE_H */

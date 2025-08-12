@@ -1,5 +1,5 @@
 /****************************************************************************
- * File: python_api.c
+ * File: stealth_python_api.c
  * Desc: Python interface functions implementation
  *       Provides simple byte-based wrappers around core cryptographic functions
  ****************************************************************************/
@@ -7,8 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "my_scheme_core.h"
-#include "python_api.h"
+#include "stealth_core.h"
+#include "stealth_python_api.h"
 
 // Macro to simplify pairing access
 #define PAIRING (*stealth_get_pairing())
@@ -116,11 +116,11 @@ void stealth_addr_gen_simple(const unsigned char* A_bytes, const unsigned char* 
 }
 
 /**
- * Python Interface: Verify address (fast version)
+ * Python Interface: Recognize address (fast version)
  */
-int stealth_addr_verify_simple(const unsigned char* R1_bytes, const unsigned char* B_bytes,
-                              const unsigned char* A_bytes, const unsigned char* C_bytes,
-                              const unsigned char* a_bytes) {
+int stealth_addr_recognize_fast_simple(const unsigned char* R1_bytes, const unsigned char* B_bytes,
+                                      const unsigned char* A_bytes, const unsigned char* C_bytes,
+                                      const unsigned char* a_bytes) {
     if (!stealth_is_initialized()) return 0;
     
     element_t R1, B, A, C, aZ;
@@ -138,10 +138,46 @@ int stealth_addr_verify_simple(const unsigned char* R1_bytes, const unsigned cha
     element_from_bytes(aZ, (unsigned char*)a_bytes);
     
     // Call core function
-    int result = stealth_addr_verify_fast(R1, B, A, C, aZ);
+    int result = stealth_addr_recognize_fast(R1, B, A, C, aZ);
     
     element_clear(R1); element_clear(B); element_clear(A);
     element_clear(C); element_clear(aZ);
+    
+    return result;
+}
+
+/**
+ * Python Interface: Recognize address (full version)
+ */
+int stealth_addr_recognize_simple(const unsigned char* addr_bytes, const unsigned char* R1_bytes,
+                                 const unsigned char* B_bytes, const unsigned char* A_bytes,
+                                 const unsigned char* C_bytes, const unsigned char* a_bytes,
+                                 const unsigned char* TK_bytes) {
+    if (!stealth_is_initialized()) return 0;
+    
+    element_t Addr, R1, B, A, C, aZ, TK;
+    element_init_G1(Addr, PAIRING);
+    element_init_G1(R1, PAIRING);
+    element_init_G1(B, PAIRING);
+    element_init_G1(A, PAIRING);
+    element_init_G1(C, PAIRING);
+    element_init_Zr(aZ, PAIRING);
+    element_init_G1(TK, PAIRING);
+    
+    // Deserialize inputs
+    element_from_bytes(Addr, (unsigned char*)addr_bytes);
+    element_from_bytes(R1, (unsigned char*)R1_bytes);
+    element_from_bytes(B, (unsigned char*)B_bytes);
+    element_from_bytes(A, (unsigned char*)A_bytes);
+    element_from_bytes(C, (unsigned char*)C_bytes);
+    element_from_bytes(aZ, (unsigned char*)a_bytes);
+    element_from_bytes(TK, (unsigned char*)TK_bytes);
+    
+    // Call core function
+    int result = stealth_addr_recognize(Addr, R1, B, A, C, aZ, TK);
+    
+    element_clear(Addr); element_clear(R1); element_clear(B);
+    element_clear(A); element_clear(C); element_clear(aZ); element_clear(TK);
     
     return result;
 }
@@ -359,7 +395,8 @@ void stealth_performance_test_simple(int iterations, double* results) {
         
         // Test all operations
         stealth_addr_gen(Addr, R1, R2, C, A, B, TK);
-        stealth_addr_verify_fast(R1, B, A, C, a);
+        stealth_addr_recognize(Addr, R1, B, A, C, a, TK);
+        stealth_addr_recognize_fast(R1, B, A, C, a);
         stealth_onetime_skgen(dsk, Addr, R1, a, b);
         stealth_sign(Q_sigma, hZ, Addr, dsk, "Test message");
         stealth_verify(Addr, R2, C, "Test message", hZ, Q_sigma);
@@ -373,14 +410,18 @@ void stealth_performance_test_simple(int iterations, double* results) {
         element_clear(dsk); element_clear(Q_sigma); element_clear(hZ);
     }
     
+    // Set the correct iteration count for performance calculation
+    extern int perf_counter;
+    perf_counter = iterations;
+    
     // Get performance results
     stealth_performance_t perf;
     stealth_get_performance(&perf);
     
     // Return results array
     results[0] = perf.addr_gen_avg;
-    results[1] = perf.addr_verify_avg;
-    results[2] = perf.fast_verify_avg;
+    results[1] = perf.addr_recognize_avg;
+    results[2] = perf.fast_recognize_avg;
     results[3] = perf.onetime_sk_avg;
     results[4] = perf.sign_avg;
     results[5] = perf.verify_avg;

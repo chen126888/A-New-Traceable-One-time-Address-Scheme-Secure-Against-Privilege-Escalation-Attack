@@ -25,7 +25,9 @@ export const AppDataProvider = ({ children }) => {
     try {
       setLoading(prev => ({ ...prev, keys: true }))
       const keyData = await apiService.getKeys()
-      setKeys(keyData)
+      // Handle API response format: { keys: [...] }
+      const keys = keyData?.keys || keyData || []
+      setKeys(Array.isArray(keys) ? keys : [])
       // 成功時清除錯誤
       setError('')
     } catch (err) {
@@ -41,7 +43,9 @@ export const AppDataProvider = ({ children }) => {
     try {
       setLoading(prev => ({ ...prev, addresses: true }))
       const addressData = await apiService.get('/addresslist')
-      setAddresses(addressData)
+      // Handle API response format: { addresses: [...] }
+      const addresses = addressData?.addresses || addressData || []
+      setAddresses(Array.isArray(addresses) ? addresses : [])
       // 成功時清除錯誤
       setError('')
     } catch (err) {

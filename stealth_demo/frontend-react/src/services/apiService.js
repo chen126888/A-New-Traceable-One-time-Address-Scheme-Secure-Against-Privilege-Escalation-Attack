@@ -58,11 +58,18 @@ class ApiService {
     return this.post('/addrgen', { key_index: keyIndex })
   }
 
-  async verifyAddress(addressIndex, keyIndex) {
-    return this.post('/verify_addr', {
+  async recognizeAddress(addressIndex, keyIndex, fast = undefined) {
+    const payload = {
       address_index: addressIndex,
       key_index: keyIndex,
-    })
+    }
+    
+    // Only add fast parameter if it's explicitly provided (for SITAIBA)
+    if (fast !== undefined) {
+      payload.fast = fast
+    }
+    
+    return this.post('/recognize_addr', payload)
   }
 
   async generateDSK(addressIndex, keyIndex) {

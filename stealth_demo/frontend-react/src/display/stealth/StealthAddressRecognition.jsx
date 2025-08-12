@@ -1,46 +1,48 @@
 import React, { useState } from 'react'
-import { Section, Button, Select, Output } from './common'
-import { apiService } from '../services/apiService'
-import { useAppData } from '../hooks/useAppData'
-import { truncateHex } from '../utils/helpers'
+import { Section, Button, Select, Output } from '../../components/common'
+import { apiService } from '../../services/apiService'
+import { useAppData } from '../../hooks/useAppData'
+import { truncateHex } from '../../utils/helpers'
 
-function AddressVerification() {
+function StealthAddressRecognition() {
   const { keys, addresses, loadAllData, loading: globalLoading, error: globalError, setError } = useAppData()
   const [selectedKeyIndex, setSelectedKeyIndex] = useState('')
   const [selectedAddrIndex, setSelectedAddrIndex] = useState('')
+  const [recognitionMethod, setRecognitionMethod] = useState('fast') // fast or full for Stealth
   const [localLoading, setLocalLoading] = useState({})
   const [localError, setLocalError] = useState('')
-  const [verificationResult, setVerificationResult] = useState(null)
+  const [recognitionResult, setRecognitionResult] = useState(null)
 
   const handleRefreshData = async () => {
     setLocalError('')
     setError('')
-    setVerificationResult(null)
+    setRecognitionResult(null)
     await loadAllData()
   }
 
-  const handleVerifyAddress = async () => {
+  const handleRecognizeAddress = async () => {
     if (selectedAddrIndex === '' || selectedKeyIndex === '') {
       setLocalError('Please select both an address and a key!')
       return
     }
 
     try {
-      setLocalLoading(prev => ({ ...prev, verifying: true }))
+      setLocalLoading(prev => ({ ...prev, recognizing: true }))
       setLocalError('')
       setError('')
       
-      const result = await apiService.verifyAddress(
+      const result = await apiService.recognizeAddress(
         parseInt(selectedAddrIndex), 
-        parseInt(selectedKeyIndex)
+        parseInt(selectedKeyIndex),
+        recognitionMethod === 'fast'
       )
       
-      setVerificationResult(result)
+      setRecognitionResult(result)
       
     } catch (err) {
-      setLocalError('Address verification failed: ' + err.message)
+      setLocalError('Address recognition failed: ' + err.message)
     } finally {
-      setLocalLoading(prev => ({ ...prev, verifying: false }))
+      setLocalLoading(prev => ({ ...prev, recognizing: false }))
     }
   }
 
@@ -50,27 +52,33 @@ function AddressVerification() {
       return `Error: ${error}`
     }
     
-    if (verificationResult) {
+    if (recognitionResult) {
       const selectedAddr = addresses[parseInt(selectedAddrIndex)]
       const selectedKey = keys[parseInt(selectedKeyIndex)]
       
-      return `🔍 Address Verification Results:
-📧 Address: ${verificationResult.address_id}
-🔑 Key Used: ${verificationResult.key_id}
-👤 Is Owner: ${verificationResult.is_owner ? '✅ Yes' : '❌ No'}
-✅ Verification Result: ${verificationResult.valid ? '✅ Valid' : '❌ Invalid'}
-📊 Status: ${verificationResult.status}
+      return `🔍 Stealth Address Recognition Results:
+📧 Address: ${recognitionResult.address_id}
+🔑 Key Used: ${recognitionResult.key_id}
+👤 Is Owner: ${recognitionResult.is_owner ? '✅ Yes' : '❌ No'}
+✅ Recognition Result: ${recognitionResult.recognized ? '✅ Recognized' : '❌ Not Recognized'}
+🔧 Recognition Method: ${recognitionResult.method}
+📊 Status: ${recognitionResult.status}
+🎯 Scheme: ${recognitionResult.scheme || 'stealth'}
 
-📋 Details:
+📋 Detailed Information:
 🏠 Address: ${truncateHex(selectedAddr?.addr_hex)}
 🔑 Key A: ${truncateHex(selectedKey?.A_hex)}
 🔑 Key B: ${truncateHex(selectedKey?.B_hex)}
 
-${verificationResult.is_owner && verificationResult.valid ? 
-  '🎉 Perfect match! This key is the owner of this address.' : 
-  verificationResult.valid ? 
-    '✅ Address is valid but not owned by this key.' :
-    '❌ Address verification failed.'
+💡 Stealth Recognition Features:
+• Fast Recognition: Uses optimized algorithm
+• Full Recognition: Uses complete verification
+
+${recognitionResult.is_owner && recognitionResult.recognized ? 
+  '✅ Address recognized and belongs to this key.' : 
+  recognitionResult.recognized ? 
+    '✅ Address is recognized but not owned by this key.' :
+    '❌ Address recognition failed.'
 }`
     }
     
@@ -78,9 +86,9 @@ ${verificationResult.is_owner && verificationResult.valid ?
   }
 
   return (
-    <Section title="🔍 Address Verification">
+    <Section title="🔍 Address Recognition (Stealth)">
       <div className="controls">
-        <label>Select Address to Verify:</label>
+        <label>Select Address to Recognize:</label>
         <Select
           value={selectedAddrIndex}
           onChange={(e) => setSelectedAddrIndex(e.target.value)}
@@ -96,7 +104,7 @@ ${verificationResult.is_owner && verificationResult.valid ?
           ))}
         </Select>
         
-        <label>Select Key for Verification:</label>
+        <label>Select Key for Recognition:</label>
         <Select
           value={selectedKeyIndex}
           onChange={(e) => setSelectedKeyIndex(e.target.value)}
@@ -112,13 +120,23 @@ ${verificationResult.is_owner && verificationResult.valid ?
           ))}
         </Select>
         
+        <label>Recognition Method:</label>
+        <Select
+          value={recognitionMethod}
+          onChange={(e) => setRecognitionMethod(e.target.value)}
+          disabled={globalLoading.all}
+        >
+          <option value="fast">Fast Recognition</option>
+          <option value="full">Full Recognition</option>
+        </Select>
+        
         <div className="inline-controls">
           <Button
-            onClick={handleVerifyAddress}
-            loading={localLoading.verifying}
-            disabled={selectedAddrIndex === '' || selectedKeyIndex === '' || localLoading.verifying}
+            onClick={handleRecognizeAddress}
+            loading={localLoading.recognizing}
+            disabled={selectedAddrIndex === '' || selectedKeyIndex === '' || localLoading.recognizing}
           >
-            Verify Address
+            Recognize Address
           </Button>
           
           <Button
@@ -139,4 +157,4 @@ ${verificationResult.is_owner && verificationResult.valid ?
   )
 }
 
-export default AddressVerification
+export default StealthAddressRecognition

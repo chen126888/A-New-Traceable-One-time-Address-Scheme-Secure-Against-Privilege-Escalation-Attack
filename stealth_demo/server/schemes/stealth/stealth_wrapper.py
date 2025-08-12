@@ -9,7 +9,7 @@ from typing import Tuple
 class StealthLibrary:
     """Wrapper class for the stealth C library."""
     
-    def __init__(self, library_path="../lib/libstealth.so"):
+    def __init__(self, library_path="/mnt/c/Users/chen1/Desktop/master/thesis/nccu/new/code/stealth_demo/lib/libstealth.so"):
         self.lib = None
         self.dsk_functions_available = False
         self.load_library(library_path)
@@ -49,8 +49,13 @@ class StealthLibrary:
         self.lib.stealth_addr_gen_simple.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_int]
         self.lib.stealth_addr_gen_simple.restype = None
         
-        self.lib.stealth_addr_verify_simple.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p]
-        self.lib.stealth_addr_verify_simple.restype = c_int
+        # Fast address recognition function
+        self.lib.stealth_addr_recognize_fast_simple.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p]
+        self.lib.stealth_addr_recognize_fast_simple.restype = c_int
+        
+        # Full address recognition function
+        self.lib.stealth_addr_recognize_simple.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p]
+        self.lib.stealth_addr_recognize_simple.restype = c_int
         
         self.lib.stealth_sign_simple.argtypes = [c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_char_p, c_int]
         self.lib.stealth_sign_simple.restype = None
@@ -116,9 +121,13 @@ class StealthLibrary:
         self.lib.stealth_addr_gen_simple(A_bytes, B_bytes, TK_bytes,
                                         addr_buf, r1_buf, r2_buf, c_buf, buf_size)
     
-    def addr_verify(self, r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes) -> bool:
-        """Verify stealth address."""
-        return bool(self.lib.stealth_addr_verify_simple(r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes))
+    def addr_recognize_fast(self, r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes) -> bool:
+        """Recognize stealth address (fast version)."""
+        return bool(self.lib.stealth_addr_recognize_fast_simple(r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes))
+    
+    def addr_recognize(self, addr_bytes, r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes, tk_bytes) -> bool:
+        """Recognize stealth address (full version)."""
+        return bool(self.lib.stealth_addr_recognize_simple(addr_bytes, r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes, tk_bytes))
     
     def sign(self, addr_bytes, r1_bytes, a_bytes, b_bytes, message_bytes, 
              q_sigma_buf, h_buf, dsk_buf, buf_size: int):
@@ -156,5 +165,12 @@ class StealthLibrary:
         self.lib.stealth_performance_test_simple(iterations, results)
 
 
-# Global library instance
-stealth_lib = StealthLibrary()
+# Global library instance - lazy initialization
+stealth_lib = None
+
+def get_stealth_lib():
+    """Get the global stealth library instance, initializing if needed."""
+    global stealth_lib
+    if stealth_lib is None:
+        stealth_lib = StealthLibrary()
+    return stealth_lib

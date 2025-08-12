@@ -1,5 +1,5 @@
 /****************************************************************************
- * File: my_scheme_core.c
+ * File: stealth_core.c
  * Desc: Core cryptographic functions for Traceable Anonymous Transaction Scheme
  *       Contains only the essential cryptographic algorithms
  ****************************************************************************/
@@ -11,7 +11,7 @@
 #include <pbc/pbc_test.h>
 #include <openssl/sha.h>
 #include <time.h>
-#include "my_scheme_core.h"
+#include "stealth_core.h"
 
 // Global state for the library
 static pairing_t pairing;
@@ -19,9 +19,9 @@ static element_t g;
 static int library_initialized = 0;
 
 // Performance tracking
-static double sumAddrGen=0, sumAddrVerify=0, sumFastAddrVerify=0, sumOnetimeSK=0,
-              sumSign=0, sumVerify=0, sumTrace=0, sumH1=0, sumH2=0, sumH3=0, sumH4=0;
-static int perf_counter = 0;
+static double sumAddrGen=0, sumAddrRecognize=0, sumFastAddrRecognize=0, sumOnetimeSK=0,
+              sumSign=0, sumVerify=0, sumTrace=0;
+int perf_counter = 0;
 
 //----------------------------------------------
 // Timer helper
@@ -44,7 +44,6 @@ void hash_to_mpz(mpz_t out, const unsigned char *data, size_t len, mpz_t mod) {
 // Hash functions H1, H2, H3, H4
 //----------------------------------------------
 void H1(element_t outZr, element_t inG1) {
-    clock_t t1 = clock();
     unsigned char buf[1024];
     size_t len = element_length_in_bytes(inG1);
     element_to_bytes(buf, inG1);
@@ -54,12 +53,9 @@ void H1(element_t outZr, element_t inG1) {
 
     element_set_mpz(outZr, tmpz);
     mpz_clear(tmpz);
-    clock_t t2 = clock();
-    sumH1 += timer_diff(t1, t2);
 }
 
 void H2(element_t outG1, element_t inAny) {
-    clock_t t1 = clock();
     unsigned char buf[1024];
     size_t len = element_length_in_bytes(inAny);
     element_to_bytes(buf, inAny);
@@ -74,12 +70,9 @@ void H2(element_t outG1, element_t inAny) {
 
     mpz_clear(tmpz);
     element_clear(z);
-    clock_t t2 = clock();
-    sumH2 += timer_diff(t1, t2);
 }
 
 void H3(element_t outG1, element_t inG1) {
-    clock_t t1 = clock();
     unsigned char buf[1024];
     size_t len = element_length_in_bytes(inG1);
     element_to_bytes(buf, inG1);
@@ -94,12 +87,9 @@ void H3(element_t outG1, element_t inG1) {
 
     mpz_clear(tmpz);
     element_clear(z);
-    clock_t t3 = clock();
-    sumH3 += timer_diff(t1, t3);
 }
 
 void H4(element_t outZr, element_t addr, const char* msg, element_t X) {
-    clock_t t1 = clock();
     unsigned char buf[2048];
     unsigned char g1buf[512];
     unsigned char g2buf[512];
@@ -122,8 +112,6 @@ void H4(element_t outZr, element_t addr, const char* msg, element_t X) {
     element_set_mpz(outZr, tmpz);
 
     mpz_clear(tmpz);
-    clock_t t2 = clock();
-    sumH4 += timer_diff(t1, t2);
 }
 
 //----------------------------------------------
@@ -159,8 +147,8 @@ int stealth_init(const char* param_file) {
     element_random(g);
     
     // Reset performance counters
-    sumAddrGen = sumAddrVerify = sumFastAddrVerify = sumOnetimeSK = 0;
-    sumSign = sumVerify = sumTrace = sumH1 = sumH2 = sumH3 = sumH4 = 0;
+    sumAddrGen = sumAddrRecognize = sumFastAddrRecognize = sumOnetimeSK = 0;
+    sumSign = sumVerify = sumTrace = 0;
     perf_counter = 0;
     
     library_initialized = 1;
@@ -189,8 +177,8 @@ void stealth_cleanup(void) {
  * Reset performance counters
  */
 void stealth_reset_performance(void) {
-    sumAddrGen = sumAddrVerify = sumFastAddrVerify = sumOnetimeSK = 0;
-    sumSign = sumVerify = sumTrace = sumH1 = sumH2 = sumH3 = sumH4 = 0;
+    sumAddrGen = sumAddrRecognize = sumFastAddrRecognize = sumOnetimeSK = 0;
+    sumSign = sumVerify = sumTrace = 0;
     perf_counter = 0;
 }
 
@@ -249,7 +237,9 @@ void stealth_addr_gen(element_t Addr, element_t R1, element_t R2, element_t C,
     element_t Ar_pow_r; element_init_G1(Ar_pow_r, pairing);
     element_pow_zn(Ar_pow_r, A_r, rZ);
 
+    clock_t hash_start = clock();
     H1(r2Z, Ar_pow_r);
+    clock_t hash_end = clock();
 
     element_pow_zn(R2, g, r2Z);
     element_pow_zn(C, B_r, r2Z);
@@ -263,9 +253,11 @@ void stealth_addr_gen(element_t Addr, element_t R1, element_t R2, element_t C,
     element_pow_zn(pairing_res_powr, pairing_res, rZ);
     
     clock_t t2 = clock();
-    sumAddrGen += timer_diff(t1, t2);
+    sumAddrGen += timer_diff(t1, t2) - timer_diff(hash_start, hash_end);
 
+    clock_t hash_start2 = clock();
     H2(R3, pairing_res_powr);
+    clock_t hash_end2 = clock();
     
     clock_t t3 = clock();
    
@@ -281,15 +273,14 @@ void stealth_addr_gen(element_t Addr, element_t R1, element_t R2, element_t C,
     element_clear(pairing_res_powr);
 
     clock_t t4 = clock();
-    sumAddrGen += timer_diff(t3, t4);
-    perf_counter++;
+    sumAddrGen += timer_diff(t3, t4) - timer_diff(hash_start2, hash_end2);
 }
 
 /**
- * Verify address (full version)
+ * Recognize address (full version)
  */
-int stealth_addr_verify(element_t Addr, element_t R1, element_t B_r,
-                       element_t A_r, element_t C, element_t aZ, element_t TK) {
+int stealth_addr_recognize(element_t Addr, element_t R1, element_t B_r,
+                          element_t A_r, element_t C, element_t aZ, element_t TK) {
     if (!library_initialized) return 0;
     
     clock_t t1 = clock();
@@ -304,7 +295,10 @@ int stealth_addr_verify(element_t Addr, element_t R1, element_t B_r,
 
     element_t r2Z_prime;
     element_init_Zr(r2Z_prime, pairing);
+    
+    clock_t hash_start = clock();
     H1(r2Z_prime, R1_pow_a);
+    clock_t hash_end = clock();
 
     element_pow_zn(C_prime, B_r, r2Z_prime);
 
@@ -315,12 +309,10 @@ int stealth_addr_verify(element_t Addr, element_t R1, element_t B_r,
     pairing_apply(pairing_res, R1, TK, pairing);
     element_pow_zn(pairing_res_r2Z, pairing_res, r2Z_prime);
 
-    clock_t t2 = clock();
-    sumAddrVerify += timer_diff(t1, t2);
-
+    clock_t hash_start2 = clock();
     H2(R3_prime, pairing_res_r2Z);
-
-    clock_t t3 = clock();
+    clock_t hash_end2 = clock();
+    
     element_mul(Addr_prime, R3_prime, B_r);
     element_mul(Addr_prime, Addr_prime, C_prime);
 
@@ -334,18 +326,17 @@ int stealth_addr_verify(element_t Addr, element_t R1, element_t B_r,
     element_clear(pairing_res);
     element_clear(pairing_res_r2Z);
 
-    clock_t t4 = clock();
-    sumAddrVerify += timer_diff(t3, t4);
-    perf_counter++;
+    clock_t t2 = clock();
+    sumAddrRecognize += timer_diff(t1, t2) - timer_diff(hash_start, hash_end) - timer_diff(hash_start2, hash_end2);
 
     return eq;
 }
 
 /**
- * Fast address verification
+ * Fast address recognition
  */
-int stealth_addr_verify_fast(element_t R1, element_t B_r, element_t A_r, 
-                            element_t C, element_t aZ) {
+int stealth_addr_recognize_fast(element_t R1, element_t B_r, element_t A_r, 
+                               element_t C, element_t aZ) {
     if (!library_initialized) return 0;
     
     clock_t t1 = clock();
@@ -357,7 +348,10 @@ int stealth_addr_verify_fast(element_t R1, element_t B_r, element_t A_r,
 
     element_t r2Z_prime;
     element_init_Zr(r2Z_prime, pairing);
+    
+    clock_t hash_start = clock();
     H1(r2Z_prime, R1_pow_a);
+    clock_t hash_end = clock();
 
     // 2) C' = B_r^(r2')
     element_t C_prime;
@@ -373,8 +367,7 @@ int stealth_addr_verify_fast(element_t R1, element_t B_r, element_t A_r,
     element_clear(C_prime);
 
     clock_t t2 = clock();    
-    sumFastAddrVerify += timer_diff(t1, t2);
-    perf_counter++;
+    sumFastAddrRecognize += timer_diff(t1, t2) - timer_diff(hash_start, hash_end);
 
     return eq;
 }
@@ -392,7 +385,10 @@ void stealth_onetime_skgen(element_t dsk, element_t Addr, element_t R1,
     element_pow_zn(R1_pow_a, R1, aZ);
 
     element_t r2Z; element_init_Zr(r2Z, pairing);
+    
+    clock_t hash_start1 = clock();
     H1(r2Z, R1_pow_a);
+    clock_t hash_end1 = clock();
 
     element_t exp; element_init_Zr(exp, pairing);
     element_mul(exp, bZ, r2Z);
@@ -400,9 +396,11 @@ void stealth_onetime_skgen(element_t dsk, element_t Addr, element_t R1,
     element_t h3_addr; element_init_G1(h3_addr, pairing);
     
     clock_t t2 = clock();
-    sumOnetimeSK += timer_diff(t1, t2);
+    sumOnetimeSK += timer_diff(t1, t2) - timer_diff(hash_start1, hash_end1);
 
+    clock_t hash_start2 = clock();
     H3(h3_addr, Addr);
+    clock_t hash_end2 = clock();
     
     clock_t t3 = clock();
 
@@ -414,8 +412,7 @@ void stealth_onetime_skgen(element_t dsk, element_t Addr, element_t R1,
     element_clear(h3_addr);
 
     clock_t t4 = clock();
-    sumOnetimeSK += timer_diff(t3, t4);
-    perf_counter++;
+    sumOnetimeSK += timer_diff(t3, t4) - timer_diff(hash_start2, hash_end2);
 }
 
 /**
@@ -436,7 +433,9 @@ void stealth_sign(element_t Q_sigma, element_t hZ, element_t Addr,
     element_t XGT; element_init_GT(XGT, pairing);
     pairing_apply(XGT, gx, g, pairing);
 
+    clock_t hash_start = clock();
     H4(hZ, Addr, msg, XGT);
+    clock_t hash_end = clock();
 
     element_t neg_hZ; element_init_Zr(neg_hZ, pairing);
     element_neg(neg_hZ, hZ);
@@ -453,8 +452,7 @@ void stealth_sign(element_t Q_sigma, element_t hZ, element_t Addr,
     element_clear(dsk_inv_h);
 
     clock_t t2 = clock();
-    sumSign += timer_diff(t1, t2);
-    perf_counter++;
+    sumSign += timer_diff(t1, t2) - timer_diff(hash_start, hash_end);
 }
 
 /**
@@ -471,7 +469,9 @@ int stealth_verify(element_t Addr, element_t R2, element_t C,
     clock_t t2 = clock();
     sumVerify += timer_diff(t1, t2);
 
+    clock_t hash_start1 = clock();
     H3(h3_addr, Addr);
+    clock_t hash_end1 = clock();
     
     clock_t t3 = clock();
 
@@ -487,7 +487,10 @@ int stealth_verify(element_t Addr, element_t R2, element_t C,
     element_mul(prod, pairing1, pairing2_exp);
 
     element_t hZ_prime; element_init_Zr(hZ_prime, pairing);
+    
+    clock_t hash_start2 = clock();
     H4(hZ_prime, Addr, msg, prod);
+    clock_t hash_end2 = clock();
 
     int valid = (element_cmp(hZ, hZ_prime) == 0);
 
@@ -499,8 +502,7 @@ int stealth_verify(element_t Addr, element_t R2, element_t C,
     element_clear(hZ_prime);
 
     clock_t t4 = clock();
-    sumVerify += timer_diff(t3, t4);
-    perf_counter++;
+    sumVerify += timer_diff(t3, t4) - timer_diff(hash_start1, hash_end1) - timer_diff(hash_start2, hash_end2);
 
     return valid;
 }
@@ -525,7 +527,9 @@ void stealth_trace(element_t B_r, element_t Addr, element_t R1, element_t R2,
     clock_t t2 = clock();
     sumTrace += timer_diff(t1, t2);
     
+    clock_t hash_start = clock();
     H2(R3, pairing_powk);
+    clock_t hash_end = clock();
     
     clock_t t3 = clock();
 
@@ -546,8 +550,7 @@ void stealth_trace(element_t B_r, element_t Addr, element_t R1, element_t R2,
     element_clear(C_inv);
 
     clock_t t4 = clock();
-    sumTrace += timer_diff(t3, t4);
-    perf_counter++;
+    sumTrace += timer_diff(t3, t4) - timer_diff(hash_start, hash_end);
 }
 
 //----------------------------------------------
@@ -561,16 +564,12 @@ void stealth_get_performance(stealth_performance_t* perf) {
     if (!perf || perf_counter == 0) return;
     
     perf->addr_gen_avg = sumAddrGen / perf_counter;
-    perf->addr_verify_avg = sumAddrVerify / perf_counter;
-    perf->fast_verify_avg = sumFastAddrVerify / perf_counter;
+    perf->addr_recognize_avg = sumAddrRecognize / perf_counter;
+    perf->fast_recognize_avg = sumFastAddrRecognize / perf_counter;
     perf->onetime_sk_avg = sumOnetimeSK / perf_counter;
     perf->sign_avg = sumSign / perf_counter;
     perf->verify_avg = sumVerify / perf_counter;
     perf->trace_avg = sumTrace / perf_counter;
-    perf->h1_avg = sumH1 / perf_counter;
-    perf->h2_avg = sumH2 / perf_counter;
-    perf->h3_avg = sumH3 / perf_counter;
-    perf->h4_avg = sumH4 / perf_counter;
     perf->operation_count = perf_counter;
 }
 
@@ -585,16 +584,12 @@ void stealth_print_performance(void) {
     
     printf("\n=== Performance Statistics (%d operations) ===\n", perf_counter);
     printf("Address Generation:  %.3f ms\n", sumAddrGen / perf_counter);
-    printf("Address Verify:      %.3f ms\n", sumAddrVerify / perf_counter);
-    printf("Fast Verify:         %.3f ms\n", sumFastAddrVerify / perf_counter);
+    printf("Address Recognize:   %.3f ms\n", sumAddrRecognize / perf_counter);
+    printf("Fast Recognize:      %.3f ms\n", sumFastAddrRecognize / perf_counter);
     printf("One-time SK Gen:     %.3f ms\n", sumOnetimeSK / perf_counter);
     printf("Sign:                %.3f ms\n", sumSign / perf_counter);
     printf("Verify:              %.3f ms\n", sumVerify / perf_counter);
     printf("Trace:               %.3f ms\n", sumTrace / perf_counter);
-    printf("H1 avg:              %.3f ms\n", sumH1 / perf_counter);
-    printf("H2 avg:              %.3f ms\n", sumH2 / perf_counter);
-    printf("H3 avg:              %.3f ms\n", sumH3 / perf_counter);
-    printf("H4 avg:              %.3f ms\n", sumH4 / perf_counter);
 }
 
 //----------------------------------------------

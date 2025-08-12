@@ -3,15 +3,22 @@ Cryptographic services module for stealth operations.
 Handles key generation, address operations, signing, verification, and tracing.
 """
 from typing import Dict, Optional
-from library_wrapper import stealth_lib
-from config import config
-from utils import (
+from .stealth_wrapper import get_stealth_lib
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from multi_scheme_config import config
+from .stealth_utils import (
     get_element_size, create_buffer, create_multiple_buffers,
     bytes_to_hex_safe_fixed, hex_to_bytes_safe, validate_index, find_matching_key
 )
 
+# Initialize stealth lib when needed
+def _get_lib():
+    return get_stealth_lib()
 
-class CryptoServices:
+
+class StealthServices:
     """High-level cryptographic operations."""
     
     @staticmethod
@@ -20,6 +27,7 @@ class CryptoServices:
         full_path = config.validate_param_file(param_file)
         
         print(f"🔧 Initializing with {full_path}")
+        stealth_lib = _get_lib()
         result = stealth_lib.init(full_path)
         
         if result != 0:
@@ -28,14 +36,15 @@ class CryptoServices:
         if not stealth_lib.is_initialized():
             raise Exception("Library initialization verification failed")
         
-        # Update configuration
-        config.dsk_functions_available = stealth_lib.dsk_functions_available
+        # Update configuration for current scheme
+        current_data = config.get_current_data()
+        current_data['dsk_functions_available'] = stealth_lib.dsk_functions_available
         
         # Clear existing data first
         config.reset()
         
         # Generate trace key (pass param_file since config is reset)
-        trace_key = CryptoServices._generate_trace_key_with_param(param_file)
+        trace_key = StealthServices._generate_trace_key_with_param(param_file)
         config.set_initialized(param_file, trace_key)
         
         g1_size, zr_size = stealth_lib.get_element_sizes()
@@ -46,7 +55,7 @@ class CryptoServices:
             "param_file": param_file,
             "g1_size": g1_size,
             "zr_size": zr_size,
-            "dsk_functions_available": config.dsk_functions_available,
+            "dsk_functions_available": stealth_lib.dsk_functions_available,
             **trace_key
         }
     
@@ -54,6 +63,7 @@ class CryptoServices:
     def _generate_trace_key_with_param(param_file: str) -> Dict:
         """Generate trace key pair with specific param file."""
         # Get element size directly from library since system might not be marked as initialized yet
+        stealth_lib = _get_lib()
         g1_size, zr_size = stealth_lib.get_element_sizes()
         buf_size = max(g1_size, zr_size, 512)
         TK_buf, k_buf = create_multiple_buffers(2, buf_size)
@@ -77,6 +87,7 @@ class CryptoServices:
     def generate_trace_key() -> Dict:
         """Generate trace key pair."""
         # Get element size directly from library since system might not be marked as initialized yet
+        stealth_lib = _get_lib()
         g1_size, zr_size = stealth_lib.get_element_sizes()
         buf_size = max(g1_size, zr_size, 512)
         TK_buf, k_buf = create_multiple_buffers(2, buf_size)
@@ -104,6 +115,7 @@ class CryptoServices:
         buf_size = get_element_size()
         A_buf, B_buf, a_buf, b_buf = create_multiple_buffers(4, buf_size)
         
+        stealth_lib = _get_lib()
         stealth_lib.keygen(A_buf, B_buf, a_buf, b_buf, buf_size)
         
         A_hex = bytes_to_hex_safe_fixed(A_buf, 'G1')
@@ -150,6 +162,7 @@ class CryptoServices:
         buf_size = get_element_size()
         addr_buf, r1_buf, r2_buf, c_buf = create_multiple_buffers(4, buf_size)
         
+        stealth_lib = _get_lib()
         stealth_lib.addr_gen(A_bytes, B_bytes, TK_bytes,
                            addr_buf, r1_buf, r2_buf, c_buf, buf_size)
         
@@ -179,8 +192,8 @@ class CryptoServices:
         return address_item
     
     @staticmethod
-    def verify_address(address_index: int, key_index: int) -> Dict:
-        """Verify address with selected key."""
+    def recognize_address(address_index: int, key_index: int) -> Dict:
+        """Recognize address with selected key (fast version)."""
         config.ensure_initialized()
         validate_index(address_index, config.address_list, "address_index")
         validate_index(key_index, config.key_list, "key_index")
@@ -194,16 +207,17 @@ class CryptoServices:
         c_bytes = hex_to_bytes_safe(address_data['c_hex'])
         a_priv_bytes = hex_to_bytes_safe(key_data['a_hex'])
         
-        result = stealth_lib.addr_verify(r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes)
+        stealth_lib = _get_lib()
+        result = stealth_lib.addr_recognize_fast(r1_bytes, b_bytes, a_bytes, c_bytes, a_priv_bytes)
         
         return {
-            "valid": result,
+            "recognized": result,
             "address_index": address_index,
             "key_index": key_index,
             "address_id": address_data['id'],
             "key_id": key_data['id'],
             "is_owner": (address_data['key_index'] == key_index),
-            "status": "valid" if result else "invalid"
+            "status": "recognized" if result else "not_recognized"
         }
     
     @staticmethod
@@ -224,6 +238,7 @@ class CryptoServices:
         buf_size = get_element_size()
         dsk_buf = create_buffer(buf_size)
         
+        stealth_lib = _get_lib()
         if config.dsk_functions_available:
             stealth_lib.dsk_gen(addr_bytes, r1_bytes, a_bytes, b_bytes, dsk_buf, buf_size)
             method = "dedicated"
@@ -265,9 +280,9 @@ class CryptoServices:
         message_bytes = message.encode('utf-8')
         
         if dsk_index is not None:
-            return CryptoServices._sign_with_dsk(message, message_bytes, dsk_index)
+            return StealthServices._sign_with_dsk(message, message_bytes, dsk_index)
         elif address_index is not None and key_index is not None:
-            return CryptoServices._sign_with_keypair(message, message_bytes, address_index, key_index)
+            return StealthServices._sign_with_keypair(message, message_bytes, address_index, key_index)
         else:
             raise ValueError("Must specify either dsk_index or (address_index and key_index)")
     
@@ -288,6 +303,7 @@ class CryptoServices:
         buf_size = get_element_size()
         q_sigma_buf, h_buf = create_multiple_buffers(2, buf_size)
         
+        stealth_lib = _get_lib()
         stealth_lib.sign_with_dsk(addr_bytes, dsk_bytes, message_bytes,
                                 q_sigma_buf, h_buf, buf_size)
         
@@ -326,6 +342,7 @@ class CryptoServices:
         buf_size = get_element_size()
         q_sigma_buf, h_buf, dsk_buf = create_multiple_buffers(3, buf_size)
         
+        stealth_lib = _get_lib()
         stealth_lib.sign(addr_bytes, r1_bytes, a_bytes, b_bytes, message_bytes,
                        q_sigma_buf, h_buf, dsk_buf, buf_size)
         
@@ -350,6 +367,54 @@ class CryptoServices:
         }
     
     @staticmethod
+    def sign_with_address_and_dsk(message: str, address_index: int, dsk_index: int) -> Dict:
+        """Sign message using specific address and DSK - allows testing of correct/incorrect matches."""
+        config.ensure_initialized()
+        validate_index(address_index, config.address_list, "address_index")
+        validate_index(dsk_index, config.dsk_list, "dsk_index")
+        
+        if not config.dsk_functions_available:
+            raise Exception("DSK signing not available in fallback mode")
+        
+        address_data = config.address_list[address_index]
+        dsk_data = config.dsk_list[dsk_index]
+        
+        message_bytes = message.encode('utf-8')
+        addr_bytes = hex_to_bytes_safe(address_data['addr_hex'])
+        dsk_bytes = hex_to_bytes_safe(dsk_data['dsk_hex'])
+        
+        buf_size = get_element_size()
+        q_sigma_buf, h_buf = create_multiple_buffers(2, buf_size)
+        
+        stealth_lib = _get_lib()
+        stealth_lib.sign_with_dsk(addr_bytes, dsk_bytes, message_bytes,
+                                q_sigma_buf, h_buf, buf_size)
+        
+        q_sigma_hex = bytes_to_hex_safe_fixed(q_sigma_buf, 'G1')
+        h_hex = bytes_to_hex_safe_fixed(h_buf, 'Zr')
+        
+        if not q_sigma_hex or not h_hex:
+            raise Exception("Failed to sign message with address and DSK")
+        
+        # Check if this is a correct match (DSK was generated for this address)
+        is_correct_match = dsk_data['address_index'] == address_index
+        
+        return {
+            "message": message,
+            "q_sigma_hex": q_sigma_hex,
+            "h_hex": h_hex,
+            "address_index": address_index,
+            "address_id": address_data['id'],
+            "dsk_index": dsk_index,
+            "dsk_id": dsk_data['id'],
+            "dsk_for_address": dsk_data['address_id'],
+            "is_correct_match": is_correct_match,
+            "match_status": "correct" if is_correct_match else "incorrect",
+            "method": "address_dsk",
+            "status": "signed"
+        }
+    
+    @staticmethod
     def verify_signature(message: str, q_sigma_hex: str, h_hex: str, address_index: int) -> Dict:
         """Verify signature."""
         config.ensure_initialized()
@@ -364,6 +429,7 @@ class CryptoServices:
         h_bytes = hex_to_bytes_safe(h_hex)
         q_sigma_bytes = hex_to_bytes_safe(q_sigma_hex)
         
+        stealth_lib = _get_lib()
         result = stealth_lib.verify(addr_bytes, r2_bytes, c_bytes, message_bytes, h_bytes, q_sigma_bytes)
         
         return {
@@ -394,6 +460,7 @@ class CryptoServices:
         buf_size = get_element_size()
         b_recovered_buf = create_buffer(buf_size)
         
+        stealth_lib = _get_lib()
         stealth_lib.trace(addr_bytes, r1_bytes, r2_bytes, c_bytes, k_bytes,
                         b_recovered_buf, buf_size)
         
@@ -431,13 +498,14 @@ class CryptoServices:
         from ctypes import c_double
         results = (c_double * 7)()
         
+        stealth_lib = _get_lib()
         stealth_lib.performance_test(iterations, results)
         
         return {
             "iterations": iterations,
             "addr_gen_ms": round(results[0], 3),
-            "addr_verify_ms": round(results[1], 3),
-            "fast_verify_ms": round(results[2], 3),
+            "addr_recognize_ms": round(results[1], 3),
+            "fast_recognize_ms": round(results[2], 3),
             "sign_ms": round(results[4], 3),
             "sig_verify_ms": round(results[5], 3),
             "trace_ms": round(results[6], 3),

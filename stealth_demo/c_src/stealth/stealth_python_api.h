@@ -49,17 +49,33 @@ void stealth_addr_gen_simple(const unsigned char* A_bytes, const unsigned char* 
                             unsigned char* r2_out, unsigned char* c_out, int buf_size);
 
 /**
- * Python Interface: Verify address (fast version)
+ * Python Interface: Recognize address (fast version)
  * @param R1_bytes R1 component as bytes
  * @param B_bytes Public key B as bytes
  * @param A_bytes Public key A as bytes
  * @param C_bytes C component as bytes
  * @param a_bytes Private key a as bytes
- * @return 1 if valid, 0 otherwise
+ * @return 1 if recognized, 0 otherwise
  */
-int stealth_addr_verify_simple(const unsigned char* R1_bytes, const unsigned char* B_bytes,
-                              const unsigned char* A_bytes, const unsigned char* C_bytes,
-                              const unsigned char* a_bytes);
+int stealth_addr_recognize_fast_simple(const unsigned char* R1_bytes, const unsigned char* B_bytes,
+                                      const unsigned char* A_bytes, const unsigned char* C_bytes,
+                                      const unsigned char* a_bytes);
+
+/**
+ * Python Interface: Recognize address (full version)
+ * @param addr_bytes Address as bytes
+ * @param R1_bytes R1 component as bytes
+ * @param B_bytes Public key B as bytes
+ * @param A_bytes Public key A as bytes
+ * @param C_bytes C component as bytes
+ * @param a_bytes Private key a as bytes
+ * @param TK_bytes Trace public key as bytes
+ * @return 1 if recognized, 0 otherwise
+ */
+int stealth_addr_recognize_simple(const unsigned char* addr_bytes, const unsigned char* R1_bytes,
+                                 const unsigned char* B_bytes, const unsigned char* A_bytes,
+                                 const unsigned char* C_bytes, const unsigned char* a_bytes,
+                                 const unsigned char* TK_bytes);
 
 /**
  * Python Interface: Generate one-time secret key (DSK)
@@ -139,8 +155,8 @@ void stealth_trace_simple(const unsigned char* addr_bytes, const unsigned char* 
  * @param iterations Number of test iterations
  * @param results Array to store performance results [7 doubles]
  *                results[0] = addr_gen_avg
- *                results[1] = addr_verify_avg
- *                results[2] = fast_verify_avg
+ *                results[1] = addr_recognize_avg
+ *                results[2] = fast_recognize_avg
  *                results[3] = onetime_sk_avg
  *                results[4] = sign_avg
  *                results[5] = verify_avg

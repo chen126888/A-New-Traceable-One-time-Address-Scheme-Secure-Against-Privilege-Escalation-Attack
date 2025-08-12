@@ -4,14 +4,18 @@ Handles hex/bytes conversion, buffer management, and common operations.
 """
 from ctypes import create_string_buffer
 from typing import Optional
-from library_wrapper import stealth_lib
-from config import config
+from .stealth_wrapper import get_stealth_lib
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from multi_scheme_config import config
 
 
 def get_element_size() -> int:
     """Get element sizes for buffer allocation."""
     if not config.system_initialized:
         return 512
+    stealth_lib = get_stealth_lib()
     g1_size, zr_size = stealth_lib.get_element_sizes()
     return max(g1_size, zr_size, 512)
 
@@ -19,6 +23,7 @@ def get_element_size() -> int:
 def bytes_to_hex_safe_fixed(buf, element_type: str = 'G1') -> str:
     """Convert buffer to hex string with fixed size."""
     try:
+        stealth_lib = get_stealth_lib()
         if element_type == 'G1':
             expected_size = stealth_lib.get_element_sizes()[0]
         elif element_type == 'Zr':

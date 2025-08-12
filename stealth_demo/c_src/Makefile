@@ -1,97 +1,83 @@
-CC = gcc
-CFLAGS = -Wall -fPIC -I. -O2
-LIBS = -lpbc -lgmp -lcrypto -lssl
-OUT = ../lib/libstealth.so
+# Master Makefile for building multiple cryptographic schemes
+.PHONY: all stealth sitaiba clean clean-all help
 
-# Source files
-CORE_SRC = my_scheme_core.c
-API_SRC = python_api.c
-HEADERS = my_scheme_core.h python_api.h
+# Default: build all schemes
+all: stealth sitaiba
 
-# Object files
-CORE_OBJ = my_scheme_core.o
-API_OBJ = python_api.o
+# Build stealth scheme
+stealth:
+	@echo "🔐 Building Stealth scheme..."
+	@$(MAKE) -C stealth
 
-# Main target: build the shared library
-all: $(OUT)
+# Build sitaiba scheme
+sitaiba:
+	@echo "🔐 Building SITAIBA scheme..."
+	@$(MAKE) -C sitaiba
 
-$(OUT): $(CORE_OBJ) $(API_OBJ)
-	@mkdir -p ../lib
-	$(CC) $(CFLAGS) -shared -o $(OUT) $(CORE_OBJ) $(API_OBJ) $(LIBS)
-	@echo "✅ Shared library built: $(OUT)"
-	@echo "📁 Architecture: Core ($(CORE_SRC)) + API ($(API_SRC))"
-
-# Compile core cryptographic functions
-$(CORE_OBJ): $(CORE_SRC) my_scheme_core.h
-	$(CC) $(CFLAGS) -c $(CORE_SRC) -o $(CORE_OBJ)
-	@echo "🔐 Core cryptographic functions compiled"
-
-# Compile Python API layer
-$(API_OBJ): $(API_SRC) python_api.h my_scheme_core.h
-	$(CC) $(CFLAGS) -c $(API_SRC) -o $(API_OBJ)
-	@echo "🐍 Python API interface compiled"
-
-# Optional: build a test executable for debugging
-test: test_stealth
-	./test_stealth ../param/a.param
-
-test_stealth: test_main.c $(CORE_OBJ) $(API_OBJ)
-	$(CC) $(CFLAGS) -o test_stealth test_main.c $(CORE_OBJ) $(API_OBJ) $(LIBS)
-	@echo "✅ Test executable built: test_stealth"
-
-# Check if library loads correctly
-check: $(OUT)
-	@echo "🔍 Checking library..."
-	@ldd $(OUT) 2>/dev/null || echo "❌ Library dependencies missing"
-	@echo "📊 Library info:"
-	@file $(OUT)
-	@ls -la $(OUT)
-	@echo "✅ Library check complete"
-
-# Debug: show what symbols are exported
-symbols: $(OUT)
-	@echo "🔍 Exported symbols:"
-	@nm -D $(OUT) | grep " T " | grep stealth || echo "No stealth symbols found"
-
-# Clean build artifacts
+# Clean all schemes
 clean:
-	rm -f *.o $(OUT) test_stealth
-	@echo "🧹 Cleaned build artifacts"
+	@echo "🧹 Cleaning all schemes..."
+	@$(MAKE) -C stealth clean
+	@if [ -f sitaiba/Makefile ]; then $(MAKE) -C sitaiba clean; fi
 
-# Install library (optional)
-install: $(OUT)
-	sudo cp $(OUT) /usr/local/lib/
-	sudo ldconfig
-	@echo "📦 Library installed to /usr/local/lib/"
+# Clean all including libraries
+clean-all:
+	@echo "🧹 Deep cleaning all schemes..."
+	@$(MAKE) -C stealth clean-all
+	@if [ -f sitaiba/Makefile ]; then $(MAKE) -C sitaiba clean-all; fi
+	@rm -rf ../lib/
+	@echo "✅ All artifacts cleaned"
 
-# Development help
-help:
-	@echo "📚 Available targets:"
-	@echo "  all      - Build shared library (default)"
-	@echo "  test     - Build and run test executable"
-	@echo "  check    - Check library dependencies and info"
-	@echo "  symbols  - Show exported function symbols"
-	@echo "  clean    - Remove build artifacts"
-	@echo "  install  - Install library system-wide"
-	@echo "  help     - Show this help"
-	@echo ""
-	@echo "📁 Project structure:"
-	@echo "  $(CORE_SRC)  - Core cryptographic functions"
-	@echo "  $(API_SRC)   - Python interface layer"
-	@echo "  $(HEADERS)    - Header files"
+# Test all schemes
+test: stealth
+	@echo "🧪 Testing all schemes..."
+	@$(MAKE) -C stealth test
+	@if [ -f sitaiba/Makefile ]; then $(MAKE) -C sitaiba test; fi
 
-# Show project structure
+# Check all schemes
+check: stealth
+	@echo "🔍 Checking all schemes..."
+	@$(MAKE) -C stealth check
+	@if [ -f sitaiba/Makefile ]; then $(MAKE) -C sitaiba check; fi
+
+# Show structure
 structure:
-	@echo "📁 Current project structure:"
+	@echo "📁 Multi-scheme project structure:"
 	@echo "c_src/"
-	@echo "├── $(CORE_SRC)      # Core cryptographic functions"
-	@echo "├── my_scheme_core.h    # Core function declarations"
-	@echo "├── $(API_SRC)       # Python interface functions"
-	@echo "├── python_api.h        # Python interface declarations"
-	@echo "├── Makefile            # This makefile"
-	@echo "└── test_main.c         # Test program (optional)"
-	@echo ""
-	@echo "Generated:"
-	@echo "└── ../lib/$(notdir $(OUT))  # Compiled shared library"
+	@echo "├── Makefile            # This master makefile"
+	@echo "├── stealth/"
+	@echo "│   ├── stealth_core.c      # Stealth cryptographic core"
+	@echo "│   ├── stealth_core.h      # Stealth headers"
+	@echo "│   ├── stealth_python_api.c # Stealth Python interface"
+	@echo "│   ├── stealth_python_api.h"
+	@echo "│   ├── Makefile            # Stealth build system"
+	@echo "│   ├── debug_*.py          # Stealth debug scripts"
+	@echo "│   └── test_*.py           # Stealth test scripts"
+	@echo "├── sitaiba/"
+	@echo "│   ├── sitaiba_core.c        # SITAIBA cryptographic core"
+	@echo "│   ├── sitaiba_core.h        # SITAIBA headers"
+	@echo "│   ├── sitaiba_python_api.c  # SITAIBA Python interface"
+	@echo "│   ├── sitaiba_python_api.h"
+	@echo "│   ├── Makefile              # SITAIBA build system"
+	@echo "│   └── debug_*.c             # SITAIBA debug programs"
+	@echo "└── ../lib/"
+	@echo "    ├── libstealth.so       # Stealth shared library"
+	@echo "    └── libsitaiba.so       # SITAIBA shared library"
 
-.PHONY: all test check symbols clean install help structure
+# Help
+help:
+	@echo "🏗️  Multi-Scheme Cryptographic Library Build System"
+	@echo ""
+	@echo "📚 Available targets:"
+	@echo "  all        - Build all schemes (default)"
+	@echo "  stealth    - Build only stealth scheme"
+	@echo "  sitaiba    - Build only sitaiba scheme"
+	@echo "  test       - Run tests for all schemes"
+	@echo "  check      - Check all libraries"
+	@echo "  clean      - Clean build artifacts"
+	@echo "  clean-all  - Deep clean including libraries"
+	@echo "  structure  - Show project structure"
+	@echo "  help       - Show this help"
+	@echo ""
+	@echo "🔍 For scheme-specific targets, cd into the scheme directory:"
+	@echo "  cd stealth && make help"
