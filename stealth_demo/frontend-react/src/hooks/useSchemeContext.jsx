@@ -7,7 +7,7 @@ const SchemeContext = createContext()
 // 方案提供者組件
 export function SchemeProvider({ children }) {
   const [currentScheme, setCurrentScheme] = useState('stealth')
-  const [availableSchemes, setAvailableSchemes] = useState(['stealth', 'sitaiba'])
+  const [availableSchemes, setAvailableSchemes] = useState(['stealth', 'sitaiba', 'hdwsa'])
   const [capabilities, setCapabilities] = useState({})
   const [loading, setLoading] = useState(false)
 
@@ -108,8 +108,10 @@ export function SchemeProvider({ children }) {
     // 便利屬性
     isStealthScheme: currentScheme === 'stealth',
     isSitaibaScheme: currentScheme === 'sitaiba',
+    isHdwsaScheme: currentScheme === 'hdwsa',
     supportsSigning: hasCapability('has_signing'),
-    supportsVerification: hasCapability('has_verification')
+    supportsVerification: hasCapability('has_verification'),
+    supportsHierarchicalWallets: hasCapability('has_hierarchical_wallets')
   }
 
   return (

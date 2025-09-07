@@ -21,10 +21,11 @@ function Header() {
 }
 
 function AppGrid() {
-  const { currentScheme, supportsSigning, supportsVerification } = useSchemeContext()
+  const { supportsSigning, supportsVerification, hasCapability } = useSchemeContext()
   
-  // For SITAIBA scheme, move Identity Tracing to row 4 since signing components are hidden
-  const showSigningComponents = currentScheme === 'stealth' && (supportsSigning || supportsVerification)
+  // Determine which components to show based on scheme capabilities
+  const showSigning = supportsSigning || supportsVerification
+  const showIdentityTracing = hasCapability('has_tracing')
   
   return (
     <div className="grid">
@@ -40,21 +41,21 @@ function AppGrid() {
       <AddressRecognition />
       <DSKGeneration />
       
-      {/* Row 4: Message Signing and Signature Verification OR Identity Tracing for SITAIBA */}
-      {showSigningComponents ? (
+      {/* Row 4: Message Signing and Signature Verification OR Identity Tracing */}
+      {showSigning ? (
         <>
           <MessageSigning />
           <SignatureVerification />
         </>
       ) : (
         <>
-          <IdentityTracing />
+          {showIdentityTracing && <IdentityTracing />}
           <div></div> {/* Empty div to maintain grid layout */}
         </>
       )}
       
-      {/* Row 5: Identity Tracing for Stealth only */}
-      {showSigningComponents && <IdentityTracing />}
+      {/* Row 5: Identity Tracing for schemes that support both signing and tracing */}
+      {showSigning && showIdentityTracing && <IdentityTracing />}
     </div>
   )
 }

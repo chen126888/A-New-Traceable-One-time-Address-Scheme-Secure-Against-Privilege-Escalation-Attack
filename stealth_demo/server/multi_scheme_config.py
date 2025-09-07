@@ -32,6 +32,16 @@ class MultiSchemeConfig:
                 'dsk_list': [],
                 # no tx_message_list - sitaiba doesn't support signing
                 'dsk_functions_available': False
+            },
+            'hdwsa': {
+                'system_initialized': False,
+                'current_param_file': None,
+                'trace_key': None,  # stores root wallet keys
+                'key_list': [],
+                'address_list': [],
+                'dsk_list': [],
+                'tx_message_list': [],  # hdwsa supports message signing
+                'dsk_functions_available': False
             }
         }
         
@@ -117,7 +127,7 @@ class MultiSchemeConfig:
         scheme_data['address_list'].clear()
         scheme_data['dsk_list'].clear()
         
-        # Only clear tx_message_list if it exists (stealth has it, sitaiba doesn't)
+        # Only clear tx_message_list if it exists (stealth and hdwsa have it, sitaiba doesn't)
         if 'tx_message_list' in scheme_data:
             scheme_data['tx_message_list'].clear()
         
@@ -201,6 +211,7 @@ class MultiSchemeConfig:
         """Get current scheme's transaction message list (if supported)."""
         current_data = self.get_current_data()
         return current_data.get('tx_message_list', [])
+    
     
     @property
     def dsk_functions_available(self) -> bool:

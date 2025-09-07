@@ -1,5 +1,5 @@
 // API服務層 - 統一管理所有API調用
-const API_BASE = '/api'
+const API_BASE = 'http://localhost:5001'
 
 class ApiService {
   async request(endpoint, options = {}) {

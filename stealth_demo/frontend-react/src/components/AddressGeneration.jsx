@@ -2,6 +2,7 @@ import React from 'react'
 import { useSchemeContext } from '../hooks/useSchemeContext'
 import StealthAddressGeneration from '../display/stealth/StealthAddressGeneration'
 import SitaibaAddressGeneration from '../display/sitaiba/SitaibaAddressGeneration'
+import HdwsaAddressGeneration from '../display/hdwsa/HdwsaAddressGeneration'
 
 function AddressGeneration() {
   const { currentScheme } = useSchemeContext()
@@ -10,6 +11,8 @@ function AddressGeneration() {
     return <StealthAddressGeneration />
   } else if (currentScheme === 'sitaiba') {
     return <SitaibaAddressGeneration />
+  } else if (currentScheme === 'hdwsa') {
+    return <HdwsaAddressGeneration />
   }
 
   return (

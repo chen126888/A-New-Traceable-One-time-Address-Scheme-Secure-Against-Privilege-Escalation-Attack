@@ -2,6 +2,7 @@ import React from 'react'
 import { useSchemeContext } from '../hooks/useSchemeContext'
 import StealthAddressRecognition from '../display/stealth/StealthAddressRecognition'
 import SitaibaAddressRecognition from '../display/sitaiba/SitaibaAddressRecognition'
+import HdwsaAddressRecognition from '../display/hdwsa/HdwsaAddressRecognition'
 
 function AddressRecognition() {
   const { currentScheme } = useSchemeContext()
@@ -10,6 +11,8 @@ function AddressRecognition() {
     return <StealthAddressRecognition />
   } else if (currentScheme === 'sitaiba') {
     return <SitaibaAddressRecognition />
+  } else if (currentScheme === 'hdwsa') {
+    return <HdwsaAddressRecognition />
   }
 
   return (

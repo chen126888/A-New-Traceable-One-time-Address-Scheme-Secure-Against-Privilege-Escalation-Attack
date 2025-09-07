@@ -131,13 +131,14 @@ def setup_routes(app):
             addr_index = data['address_index']
             key_index = data['key_index']
             
-            # Check if scheme supports fast/full recognition (SITAIBA)
-            if config.current_scheme == 'sitaiba':
-                fast = data.get('fast', True)  # Default to fast recognition
-                result = current_service.recognize_address(addr_index, key_index, fast)
-            else:
-                # Stealth only has one recognition method
+            # Check scheme-specific recognition method support
+            if config.current_scheme == 'stealth':
+                # Stealth scheme only takes 2 arguments
                 result = current_service.recognize_address(addr_index, key_index)
+            else:
+                # SITAIBA and HDWSA can accept the 'fast' param
+                fast = data.get('fast', True)
+                result = current_service.recognize_address(addr_index, key_index, fast)
             
             result["scheme"] = config.current_scheme
             return jsonify(result)
@@ -329,5 +330,14 @@ def setup_routes(app):
             "tx_messages": tx_messages,
             "scheme": config.current_scheme,
             "count": len(tx_messages),
-            "supported": len(tx_messages) > 0 or config.current_scheme == 'stealth'
+            "supported": len(tx_messages) > 0 or config.current_scheme in ['stealth', 'hdwsa']
         })
+
+    @app.route("/wallet_tree", methods=["GET"])
+    def get_wallet_tree():
+        """Get hierarchical wallet tree for current scheme (if supported)"""
+        try:
+            result = scheme_manager.get_wallet_tree()
+            return jsonify(result)
+        except Exception as e:
+            raise e

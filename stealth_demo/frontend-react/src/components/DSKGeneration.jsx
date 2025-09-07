@@ -2,6 +2,7 @@ import React from 'react'
 import { useSchemeContext } from '../hooks/useSchemeContext'
 import StealthDSKGeneration from '../display/stealth/StealthDSKGeneration'
 import SitaibaDSKGeneration from '../display/sitaiba/SitaibaDSKGeneration'
+import HdwsaDSKGeneration from '../display/hdwsa/HdwsaDSKGeneration'
 
 function DSKGeneration() {
   const { currentScheme } = useSchemeContext()
@@ -10,6 +11,8 @@ function DSKGeneration() {
     return <StealthDSKGeneration />
   } else if (currentScheme === 'sitaiba') {
     return <SitaibaDSKGeneration />
+  } else if (currentScheme === 'hdwsa') {
+    return <HdwsaDSKGeneration />
   }
 
   return (

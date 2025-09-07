@@ -2,6 +2,7 @@ import React from 'react'
 import { useSchemeContext } from '../hooks/useSchemeContext'
 import StealthPerformanceTest from '../display/stealth/StealthPerformanceTest'
 import SitaibaPerformanceTest from '../display/sitaiba/SitaibaPerformanceTest'
+import HdwsaPerformanceTest from '../display/hdwsa/HdwsaPerformanceTest'
 
 function PerformanceTest() {
   const { currentScheme } = useSchemeContext()
@@ -10,6 +11,8 @@ function PerformanceTest() {
     return <StealthPerformanceTest />
   } else if (currentScheme === 'sitaiba') {
     return <SitaibaPerformanceTest />
+  } else if (currentScheme === 'hdwsa') {
+    return <HdwsaPerformanceTest />
   }
 
   return (

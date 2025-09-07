@@ -192,7 +192,7 @@ class StealthServices:
         return address_item
     
     @staticmethod
-    def recognize_address(address_index: int, key_index: int) -> Dict:
+    def recognize_address(address_index: int, key_index: int, **kwargs) -> Dict:
         """Recognize address with selected key (fast version)."""
         config.ensure_initialized()
         validate_index(address_index, config.address_list, "address_index")

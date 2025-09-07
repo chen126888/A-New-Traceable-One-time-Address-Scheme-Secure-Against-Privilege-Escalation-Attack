@@ -48,7 +48,7 @@ function StealthDSKGeneration() {
   const notifyDSKUpdate = useCallback((newDSK) => {
     // 觸發自定義事件，讓MessageSigning組件知道有新的DSK
     window.dispatchEvent(new CustomEvent('dskUpdated', { 
-      detail: { newDSK, allDSKs: [...dskList, newDSK] }
+      detail: { newDSK, allDSKs: [...dskList, newDSK] } 
     }))
   }, [dskList])
 

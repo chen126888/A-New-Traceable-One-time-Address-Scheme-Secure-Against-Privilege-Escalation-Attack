@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make:*)",
+      "Bash(gcc:*)",
+      "Bash(./debug_hdwsa_full)",
+      "Bash(./debug_hdwsa_api)",
+      "Bash(python test_hdwsa_integration.py)",
+      "Bash(python server/test_hdwsa_integration.py)",
+      "Bash(python3:*)",
+      "Bash(mkdir:*)",
+      "Bash(python test_hdwsa_frontend_api.py)",
+      "Bash(curl:*)",
+      "Bash(/dev/null)",
+      "Bash(git reset:*)",
+      "Bash(grep:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -26,7 +26,8 @@ function SchemeSelector() {
   const getSchemeDisplayName = (scheme) => {
     const names = {
       'stealth': 'Stealth (完整功能)',
-      'sitaiba': 'Sitaiba (無簽名功能)'
+      'sitaiba': 'Sitaiba (無簽名功能)',
+      'hdwsa': 'HDWSA (層級錢包)'
     }
     return names[scheme] || scheme
   }
@@ -35,6 +36,8 @@ function SchemeSelector() {
     if (scheme === 'stealth') {
       return <span className="badge implemented">Implemented</span>
     } else if (scheme === 'sitaiba') {
+      return <span className="badge implemented">Implemented</span>
+    } else if (scheme === 'hdwsa') {
       return <span className="badge implemented">Implemented</span>
     }
     return null

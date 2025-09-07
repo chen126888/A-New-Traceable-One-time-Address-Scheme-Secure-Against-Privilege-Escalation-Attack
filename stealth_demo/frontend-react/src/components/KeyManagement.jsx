@@ -2,6 +2,7 @@ import React from 'react'
 import { useSchemeContext } from '../hooks/useSchemeContext'
 import StealthKeyManagement from '../display/stealth/StealthKeyManagement'
 import SitaibaKeyManagement from '../display/sitaiba/SitaibaKeyManagement'
+import HdwsaKeyManagement from '../display/hdwsa/HdwsaKeyManagement'
 
 function KeyManagement() {
   const { currentScheme } = useSchemeContext()
@@ -10,6 +11,8 @@ function KeyManagement() {
     return <StealthKeyManagement />
   } else if (currentScheme === 'sitaiba') {
     return <SitaibaKeyManagement />
+  } else if (currentScheme === 'hdwsa') {
+    return <HdwsaKeyManagement />
   }
 
   return (

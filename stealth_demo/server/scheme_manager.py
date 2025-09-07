@@ -23,13 +23,18 @@ class SchemeManager:
         if server_dir not in sys.path:
             sys.path.insert(0, server_dir)
         
+        # Only print initialization messages in main process
+        show_messages = not os.environ.get('WERKZEUG_RUN_MAIN')
+        
         try:
             # Initialize Stealth scheme
             from schemes.stealth.stealth_services import StealthServices
             self.schemes['stealth'] = StealthServices()
-            print("✅ Stealth scheme initialized")
+            if show_messages:
+                print("✅ Stealth scheme initialized")
         except Exception as e:
-            print(f"❌ Failed to initialize stealth scheme: {e}")
+            if show_messages:
+                print(f"❌ Failed to initialize stealth scheme: {e}")
             if hasattr(e, '__traceback__'):
                 traceback.print_exc()
         
@@ -37,9 +42,23 @@ class SchemeManager:
             # Initialize SITAIBA scheme
             from schemes.sitaiba.sitaiba_services import SitaibaServices
             self.schemes['sitaiba'] = SitaibaServices()
-            print("✅ SITAIBA scheme initialized")
+            if show_messages:
+                print("✅ SITAIBA scheme initialized")
         except Exception as e:
-            print(f"❌ Failed to initialize SITAIBA scheme: {e}")
+            if show_messages:
+                print(f"❌ Failed to initialize SITAIBA scheme: {e}")
+            if hasattr(e, '__traceback__'):
+                traceback.print_exc()
+        
+        try:
+            # Initialize HDWSA scheme
+            from schemes.hdwsa.hdwsa_services import HdwsaServices
+            self.schemes['hdwsa'] = HdwsaServices()
+            if show_messages:
+                print("✅ HDWSA scheme initialized")
+        except Exception as e:
+            if show_messages:
+                print(f"❌ Failed to initialize HDWSA scheme: {e}")
             if hasattr(e, '__traceback__'):
                 traceback.print_exc()
     
@@ -65,6 +84,10 @@ class SchemeManager:
         
         old_scheme = self.current_scheme
         self.current_scheme = scheme_name
+        
+        # Also update the global config
+        from multi_scheme_config import config
+        config.set_current_scheme(scheme_name)
         
         return {
             "status": "switched",
@@ -110,6 +133,14 @@ class SchemeManager:
             capabilities.update({
                 "has_addr_recognition": True,   # Stealth supports address recognition
                 "implemented": True
+            })
+        elif scheme_name == 'hdwsa':
+            # HDWSA scheme specific capabilities
+            capabilities.update({
+                "has_addr_recognition": True,   # HDWSA supports address recognition
+                "has_hierarchical": True,       # HDWSA supports hierarchical wallets
+                "has_tracing": False,           # HDWSA doesn't support identity tracing
+                "implemented": True             # HDWSA is fully implemented
             })
         else:
             capabilities["implemented"] = False
@@ -196,6 +227,24 @@ class SchemeManager:
         """Run performance test with current scheme."""
         service = self.get_current_service()
         result = service.performance_test(iterations)
+        result["scheme"] = self.current_scheme
+        return result
+    
+    def get_wallet_tree(self) -> Dict[str, Any]:
+        """Get hierarchical wallet tree (HDWSA specific)."""
+        service = self.get_current_service()
+        
+        # Check if current scheme supports hierarchical wallets
+        if not hasattr(service, 'get_wallet_tree'):
+            return {
+                "error": f"Scheme '{self.current_scheme}' doesn't support hierarchical wallets",
+                "scheme": self.current_scheme,
+                "wallet_tree": {"children": {}},
+                "total_wallets": 0,
+                "status": "not_supported"
+            }
+        
+        result = service.get_wallet_tree()
         result["scheme"] = self.current_scheme
         return result
 
