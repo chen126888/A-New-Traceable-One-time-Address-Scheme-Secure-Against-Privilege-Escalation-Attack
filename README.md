@@ -11,7 +11,7 @@
 * `demo/`
     * 一個用 Python Flask 寫的簡單前端。
     * 目標是做一個網頁介面，讓大家可以直接在瀏覽器上跑各個方案的演算法、看看輸出結果，順便量一下執行時間。
-    * server: python3 app.py
+    * stealth_demo: python3 -m server.app
     * frontend-react: npm run dev
 
 ## 開發進度
