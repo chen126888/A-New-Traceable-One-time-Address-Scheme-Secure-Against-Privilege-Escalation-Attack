@@ -10,49 +10,38 @@ function DSKGeneration() {
   const { currentScheme: scheme } = useSchemeContext();
   const { 
     keys, 
-    addresses, 
+    addresses,
+    dsks,
     loading: globalLoading, 
     error: globalError, 
     clearError,
     loadKeys,
-    loadAddresses
+    loadAddresses,
+    loadDSKs,
+    addDsk
   } = useAppData();
   
   const [selectedKeyIndex, setSelectedKeyIndex] = useState('');
   const [selectedAddrIndex, setSelectedAddrIndex] = useState('');
   const [selectedDSKIndex, setSelectedDSKIndex] = useState(-1);
-  const [dskList, setDskList] = useState([]);
   const [localLoading, setLocalLoading] = useState({});
   const [localError, setLocalError] = useState('');
 
   const handleRefreshData = useCallback(async () => {
     setLocalError('');
     clearError();
-    await Promise.all([loadKeys(), loadAddresses()]);
-  }, [loadKeys, loadAddresses, clearError]);
-
-  const loadDSKList = useCallback(async () => {
-    try {
-      setLocalLoading(prev => ({ ...prev, loading: true }));
-      const data = await apiService.get('/dsklist');
-      const dsks = data?.dsks || data || [];
-      setDskList(Array.isArray(dsks) ? dsks : []);
-    } catch (err) {
-      setLocalError('Failed to load DSK list: ' + err.message);
-    } finally {
-      setLocalLoading(prev => ({ ...prev, loading: false }));
-    }
-  }, []);
+    await Promise.all([loadKeys(), loadAddresses(), loadDSKs()]);
+  }, [loadKeys, loadAddresses, loadDSKs, clearError]);
 
   useEffect(() => {
-    loadDSKList();
-  }, [loadDSKList]);
+    loadDSKs();
+  }, [loadDSKs]);
 
   const notifyDSKUpdate = useCallback((newDSK) => {
     window.dispatchEvent(new CustomEvent('dskUpdated', { 
-      detail: { newDSK, allDSKs: [...dskList, newDSK] }
+      detail: { newDSK, allDSKs: [...dsks, newDSK] }
     }));
-  }, [dskList]);
+  }, [dsks]);
 
   const handleGenerateDSK = useCallback(async () => {
     if (selectedAddrIndex === '' || selectedKeyIndex === '') {
@@ -70,7 +59,7 @@ function DSKGeneration() {
         parseInt(selectedKeyIndex)
       );
       
-      setDskList(prev => [...prev, newDSK]);
+      addDsk(newDSK);
       notifyDSKUpdate(newDSK);
       
     } catch (err) {
@@ -90,10 +79,10 @@ function DSKGeneration() {
       return `Error: ${error}`;
     }
     
-    const filteredDsks = dskList.filter(dsk => dsk.scheme === scheme);
+    const filteredDsks = dsks.filter(dsk => dsk.scheme === scheme);
 
-    if (selectedDSKIndex >= 0 && dskList[selectedDSKIndex]) {
-        const selectedDsk = dskList[selectedDSKIndex];
+    if (selectedDSKIndex >= 0 && dsks[selectedDSKIndex]) {
+        const selectedDsk = dsks[selectedDSKIndex];
         if (selectedDsk.scheme === scheme) {
             return getDSKDetails(scheme, selectedDsk, selectedDSKIndex);
         }
@@ -107,7 +96,7 @@ function DSKGeneration() {
     return `Select an address and key to generate a new ${scheme.toUpperCase()} DSK.`;
   };
 
-  const dskItems = dskList
+  const dskItems = dsks
     .filter(dsk => dsk.scheme === scheme)
     .map((dsk, index) => ({
       id: dsk.id,
@@ -117,8 +106,8 @@ function DSKGeneration() {
         `Key: ${dsk.key_id}`,
         `Scheme: ${dsk.scheme}`
       ],
-      selected: dskList.indexOf(dsk) === selectedDSKIndex,
-      onClick: () => handleDSKClick(dskList.indexOf(dsk))
+      selected: dsks.indexOf(dsk) === selectedDSKIndex,
+      onClick: () => handleDSKClick(dsks.indexOf(dsk))
   }));
 
   const filteredAddresses = addresses.filter(addr => addr.scheme === scheme);
@@ -169,15 +158,6 @@ function DSKGeneration() {
             disabled={globalLoading.all}
           >
             Refresh Data
-          </Button>
-          
-          <Button
-            onClick={loadDSKList}
-            variant="secondary"
-            loading={localLoading.loading}
-            disabled={localLoading.loading}
-          >
-            Load DSK List
           </Button>
         </div>
       </div>

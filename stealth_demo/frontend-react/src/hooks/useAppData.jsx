@@ -1,4 +1,4 @@
-import React, { useState, createContext, useContext, useCallback } from 'react'
+import React, { useState, createContext, useContext, useCallback, useEffect } from 'react'
 import { apiService } from '../services/apiService'
 
 // 創建 Context
@@ -73,20 +73,31 @@ export const AppDataProvider = ({ children }) => {
     }
   }, [])
 
-  const loadTxMessages = useCallback(async () => {
+  const loadTxMessages = useCallback(async (force = false) => {
     try {
       setLoading(prev => ({ ...prev, txMessages: true }))
-      const txData = await apiService.getTxMessages() // Use the new apiService method
-      const txMessages = txData?.tx_messages || txData || []
-      setTxMessages(Array.isArray(txMessages) ? txMessages : [])
+      
+      // 只在強制載入或沒有現有資料時才從後端載入
+      // 因為交易訊息主要由前端管理
+      if (force || txMessages.length === 0) {
+        const txData = await apiService.getTxMessages()
+        const backendTxMessages = txData?.tx_messages || txData || []
+        
+        // 只有在後端有資料且前端沒有資料時才覆蓋
+        if (Array.isArray(backendTxMessages) && backendTxMessages.length > 0 && txMessages.length === 0) {
+          setTxMessages(backendTxMessages)
+        }
+      }
+      
       setError('')
     } catch (err) {
       console.error('Failed to load Tx Messages:', err)
-      setError('Failed to load Tx Messages: ' + err.message)
+      // 不設置錯誤，因為交易訊息載入失敗不影響其他功能
+      console.warn('Tx Messages loading failed, using frontend state')
     } finally {
       setLoading(prev => ({ ...prev, txMessages: false }))
     }
-  }, [])
+  }, [txMessages.length])
 
   // 使用 useCallback 來防止無限循環
   const loadAllData = useCallback(async () => {
@@ -151,6 +162,31 @@ export const AppDataProvider = ({ children }) => {
   const clearError = useCallback(() => {
     setError('')
   }, [])
+
+  // 監聽 scheme 數據清理事件
+  useEffect(() => {
+    const handleSchemeDataCleared = (event) => {
+      console.log('AppData received scheme clear event:', event.detail)
+      
+      const { type } = event.detail
+      
+      if (type === 'all') {
+        // 清理所有數據
+        resetData()
+        console.log('AppData: All data cleared')
+      } else if (type === 'current') {
+        // 清理當前 scheme 數據
+        resetData() // 目前簡化為清理全部，之後可以改進為只清理特定 scheme
+        console.log('AppData: Current scheme data cleared')
+      }
+    }
+
+    window.addEventListener('schemeDataCleared', handleSchemeDataCleared)
+
+    return () => {
+      window.removeEventListener('schemeDataCleared', handleSchemeDataCleared)
+    }
+  }, [resetData])
 
   const value = {
     // 數據

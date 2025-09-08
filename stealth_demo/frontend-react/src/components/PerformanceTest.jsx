@@ -183,7 +183,7 @@ ${summary}`;
         
         <div className="test-controls">
           <Button onClick={handleRunPerformanceTest} loading={localLoading.testing} disabled={localLoading.testing || iterations < 1 || iterations > 1000} className="test-button">
-            {localLoading.testing ? 'Running Test...' : `Run ${scheme.toUpperCase()} Performance Test`}
+            {localLoading.testing ? 'Running Test...' : 'Run Performance Test'}
           </Button>
           <Button onClick={handleClearResults} variant="secondary" disabled={testResults.length === 0}>
             Clear Results

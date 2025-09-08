@@ -110,7 +110,7 @@ function SystemSetup() {
             loading={loading.setup}
             disabled={!selectedParam || loading.setup}
           >
-            {`Initialize ${scheme.toUpperCase()} System`}
+            Initialize System
           </Button>
           
           {scheme === 'sitaiba' && (

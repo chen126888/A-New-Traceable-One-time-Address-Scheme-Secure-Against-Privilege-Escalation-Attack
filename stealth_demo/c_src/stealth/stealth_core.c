@@ -527,9 +527,7 @@ void stealth_trace(element_t B_r, element_t Addr, element_t R1, element_t R2,
     clock_t t2 = clock();
     sumTrace += timer_diff(t1, t2);
     
-    clock_t hash_start = clock();
     H2(R3, pairing_powk);
-    clock_t hash_end = clock();
     
     clock_t t3 = clock();
 
@@ -550,7 +548,7 @@ void stealth_trace(element_t B_r, element_t Addr, element_t R1, element_t R2,
     element_clear(C_inv);
 
     clock_t t4 = clock();
-    sumTrace += timer_diff(t3, t4) - timer_diff(hash_start, hash_end);
+    sumTrace += timer_diff(t3, t4);
 }
 
 //----------------------------------------------

@@ -83,7 +83,7 @@ function KeyManagement() {
           loading={localLoading.keygen || globalLoading.keys}
           disabled={localLoading.keygen || globalLoading.keys}
         >
-          {`Generate ${scheme.toUpperCase()} Key`}
+          Generate Key
         </Button>
         <Button
           onClick={handleRefreshKeys}

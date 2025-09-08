@@ -73,20 +73,43 @@ export function SchemeProvider({ children }) {
   // 清空當前方案數據
   const clearCurrentData = async () => {
     try {
-      await apiService.post('/reset')
+      const result = await apiService.post('/reset')
+      
+      // 觸發前端清理事件
+      window.dispatchEvent(new CustomEvent('schemeDataCleared', {
+        detail: { 
+          type: 'current',
+          scheme: currentScheme,
+          result: result
+        }
+      }))
+      
       console.log(`🧹 Cleared ${currentScheme} scheme data`)
+      return result
     } catch (error) {
       console.error('Failed to clear scheme data:', error)
+      throw error
     }
   }
 
   // 清空所有方案數據
   const clearAllData = async () => {
     try {
-      await apiService.post('/reset', { reset_all: true })
+      const result = await apiService.post('/reset', { reset_all: true })
+      
+      // 觸發前端清理事件
+      window.dispatchEvent(new CustomEvent('schemeDataCleared', {
+        detail: { 
+          type: 'all',
+          result: result
+        }
+      }))
+      
       console.log('🧹 Cleared all schemes data')
+      return result
     } catch (error) {
       console.error('Failed to clear all data:', error)
+      throw error
     }
   }
 

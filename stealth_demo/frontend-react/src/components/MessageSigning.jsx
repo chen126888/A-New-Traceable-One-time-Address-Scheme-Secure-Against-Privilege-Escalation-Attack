@@ -69,11 +69,42 @@ function MessageSigning() {
         dsk_index: parseInt(selectedDSKIndex)
       });
       
-      // Add the new signature to the global txMessages state
-      addTxMessage(signature); 
+      // Convert backend signature format to transaction message format
+      const txMessage = {
+        id: `tx_${Date.now()}`,
+        index: txMessages.length,
+        timestamp: new Date().toISOString(),
+        
+        // Transaction components
+        message: signature.message,
+        signature: {
+          q_sigma_hex: signature.q_sigma_hex,
+          h_hex: signature.h_hex
+        },
+        address: {
+          addr_hex: addresses[parseInt(selectedAddrIndex)].addr_hex,
+          r2_hex: addresses[parseInt(selectedAddrIndex)].r2_hex,
+          c_hex: addresses[parseInt(selectedAddrIndex)].c_hex,
+          owner_id: addresses[parseInt(selectedAddrIndex)].key_id
+        },
+        
+        // Metadata
+        signing_method: signature.method,
+        address_index: parseInt(selectedAddrIndex),
+        dsk_index: parseInt(selectedDSKIndex),
+        status: 'pending_verification'
+      };
+
+      // Add the new transaction message to the global txMessages state
+      addTxMessage(txMessage); 
       
-      // Optionally, you might want to select the newly added signature for immediate display
-      // setSelectedSigIndex(txMessages.length); // This might be tricky due to async state update
+      // Trigger event for other components (e.g., StealthSignatureVerification)
+      window.dispatchEvent(new CustomEvent('signatureCreated', {
+        detail: { 
+          signature: signature,
+          txMessage: txMessage
+        }
+      }));
       
     } catch (err) {
       setLocalError('Message signing failed: ' + err.message);
@@ -91,13 +122,13 @@ function MessageSigning() {
     if (error) return `Error: ${error}`;
 
     if (selectedSigIndex >= 0 && txMessages[selectedSigIndex]) { // Use txMessages
-      const sig = txMessages[selectedSigIndex];
-      return `🔍 Signature Details - Index ${selectedSigIndex}\n📝 Message: "${sig.message}"\n🛠️ Signing Method: ${sig.method}\n📧 Address: ${sig.address_id || 'N/A'}\n🔑 Key: ${sig.key_id || 'N/A'}\n🔐 DSK: ${sig.dsk_id || 'N/A'}\n📊 Status: ${sig.status}\n\n✍️ Signature Components:\nQ_sigma (G1):\n${sig.q_sigma_hex}\n\nH (Zr):\n${sig.h_hex}`;
+      const tx = txMessages[selectedSigIndex];
+      return `🔍 Signature Details - Index ${selectedSigIndex}\n📝 Message: "${tx.message}"\n🛠️ Signing Method: ${tx.signing_method}\n📧 Address: ${tx.address?.owner_id || 'N/A'}\n🔑 Key: ${tx.address?.owner_id || 'N/A'}\n🔐 DSK: ${tx.dsk_index !== undefined ? `dsk_${tx.dsk_index}` : 'N/A'}\n📊 Status: ${tx.status}\n\n✍️ Signature Components:\nQ_sigma (G1):\n${tx.signature.q_sigma_hex}\n\nH (Zr):\n${tx.signature.h_hex}`;
     }
     
     if (txMessages.length > 0) { // Use txMessages
-      const latestSig = txMessages[txMessages.length - 1];
-      return `✅ Message Signed Successfully!\n📝 Message: "${latestSig.message}"\n✍️ Q_sigma: ${truncateHex(latestSig.q_sigma_hex)}\n🔢 H: ${truncateHex(latestSig.h_hex)}`;
+      const latestTx = txMessages[txMessages.length - 1];
+      return `✅ Message Signed Successfully!\n📝 Message: "${latestTx.message}"\n✍️ Q_sigma: ${truncateHex(latestTx.signature.q_sigma_hex)}\n🔢 H: ${truncateHex(latestTx.signature.h_hex)}`;
     }
     
     return 'Enter a message and select the corresponding address and DSK to create a signature.';
@@ -146,10 +177,10 @@ function MessageSigning() {
         </div>
       </div>
       
-      <DataList items={txMessages.map((sig, index) => ({
+      <DataList items={txMessages.map((tx, index) => ({
         id: `sig_${index}`,
         header: `Signature ${index}`,
-        details: [`Message: "${sig.message.substring(0, 20)}..."`, `Q_sigma: ${truncateHex(sig.q_sigma_hex, 12)}`],
+        details: [`Message: "${tx.message.substring(0, 20)}..."`, `Q_sigma: ${truncateHex(tx.signature.q_sigma_hex, 12)}`],
         selected: index === selectedSigIndex,
         onClick: () => handleSignatureClick(index)
       }))} />

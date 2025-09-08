@@ -6,15 +6,16 @@ import { truncateHex, isValidHex } from '../../utils/helpers'
 
 function StealthSignatureVerification() {
   const { 
-    addresses, 
+    addresses,
+    txMessages,
     loading: globalLoading, 
     error: globalError, 
     clearError,
-    loadAddresses
+    loadAddresses,
+    loadTxMessages
   } = useAppData()
   
   const [selectedTxIndex, setSelectedTxIndex] = useState('')
-  const [txMessages, setTxMessages] = useState([])
   const [useManualInput, setUseManualInput] = useState(false)
   const [manualTxData, setManualTxData] = useState({
     message: '',
@@ -28,21 +29,6 @@ function StealthSignatureVerification() {
   const [localLoading, setLocalLoading] = useState({})
   const [localError, setLocalError] = useState('')
 
-  // 載入交易訊息列表
-  const loadTxMessages = useCallback(async () => {
-    try {
-      setLocalLoading(prev => ({ ...prev, loadingTx: true }))
-      // 這裡應該從後端獲取完整的交易訊息列表
-      // 目前先用空數組，實際應該有 /tx_messages 端點
-      const response = await apiService.get('/tx_messages').catch(() => ({ data: { tx_messages: [] } }))
-      const txData = response?.data || response || { tx_messages: [] }
-      setTxMessages(Array.isArray(txData.tx_messages) ? txData.tx_messages : [])
-    } catch (err) {
-      setLocalError('Failed to load transaction messages: ' + err.message)
-    } finally {
-      setLocalLoading(prev => ({ ...prev, loadingTx: false }))
-    }
-  }, [])
 
   // 監聽簽名事件來創建完整的交易訊息
   useEffect(() => {
@@ -86,50 +72,35 @@ function StealthSignatureVerification() {
         }
         
         console.log('Creating transaction message:', txMessage)
-        setTxMessages(prev => {
-          const updated = [...prev, txMessage]
-          console.log('Updated tx messages:', updated)
-          return updated
-        })
+        // Note: Transaction message is already added to global state by MessageSigning component
       } else {
         console.warn('No address data found for signature:', signature)
       }
     }
 
-    // 先載入現有數據
+    // 載入交易訊息（現在有防護機制，不會覆蓋前端狀態）
     loadTxMessages()
     
-    // 然後監聽新事件
+    // 監聽新事件
     window.addEventListener('signatureCreated', handleSignatureCreated)
 
     return () => {
       window.removeEventListener('signatureCreated', handleSignatureCreated)
     }
-  }, [loadTxMessages, addresses]) // 移除 txMessages.length 依賴以避免循環
+  }, [loadTxMessages, addresses])
 
   // 刷新數據
   const handleRefreshData = useCallback(async () => {
     setLocalError('')
     clearError()
-    await Promise.all([loadAddresses(), loadTxMessages()])
-  }, [loadAddresses, loadTxMessages, clearError])
+    await Promise.all([
+      loadAddresses(),
+      loadTxMessages() // 這現在有防護機制，不會覆蓋現有的前端資料
+    ])
+    console.log('Refreshed data, txMessages count:', txMessages.length)
+  }, [loadAddresses, loadTxMessages, clearError, txMessages.length])
 
 
-
-  // 清空選擇
-  const handleClearSelection = useCallback(() => {
-    setSelectedTxIndex('')
-    setVerificationResult(null)
-    setLocalError('')
-    setManualTxData({
-      message: '',
-      qSigmaHex: '',
-      hHex: '',
-      addrHex: '',
-      r2Hex: '',
-      cHex: ''
-    })
-  }, [])
 
   // 驗證交易
   const handleVerifyTransaction = useCallback(async () => {
@@ -204,9 +175,18 @@ function StealthSignatureVerification() {
       } catch (newApiError) {
         console.log('New API failed, trying fallback:', newApiError.message)
         
+        // 檢查是否有必要的數據進行回退
+        if (!txData.address?.addr_hex) {
+          throw new Error('Missing address data for verification')
+        }
+        
+        if (!addresses || addresses.length === 0) {
+          throw new Error('No addresses loaded for fallback verification')
+        }
+        
         // 後退方案：找到對應的地址索引並使用舊API
         const addressIndex = addresses.findIndex(addr => 
-          addr.addr_hex === txData.address.addr_hex
+          addr && addr.addr_hex && addr.addr_hex === txData.address.addr_hex
         )
         
         if (addressIndex >= 0) {
@@ -220,7 +200,7 @@ function StealthSignatureVerification() {
           console.log('Fallback API result:', result)
           result.fallback_method = true
         } else {
-          throw new Error('Cannot find matching address for verification')
+          throw new Error(`Cannot find matching address for verification. Looking for: ${txData.address.addr_hex}, Available addresses: ${addresses.filter(addr => addr && addr.addr_hex).map(addr => addr.addr_hex).join(', ')}`)
         }
       }
       
@@ -231,13 +211,11 @@ function StealthSignatureVerification() {
         verification_type: useManualInput ? 'manual' : 'auto'
       })
       
-      // 更新交易狀態
+      // 更新交易狀態 - Note: This would need to be handled by a global state update function
+      // For now, we'll just log it since txMessages is read-only from global state
       if (!useManualInput && selectedTxIndex !== '') {
-        setTxMessages(prev => prev.map((tx, index) => 
-          index === parseInt(selectedTxIndex) 
-            ? { ...tx, status: result.valid ? 'verified' : 'invalid' }
-            : tx
-        ))
+        console.log(`Transaction ${selectedTxIndex} verification result: ${result.valid ? 'verified' : 'invalid'}`)
+        // TODO: Implement global state update for transaction status
       }
       
       console.log('Verification completed:', result)
@@ -284,20 +262,7 @@ ${verificationResult.valid ?
     }
     
     if (txMessages.length === 0) {
-      return `📋 About Transaction Verification:
-This verifies complete transaction messages in the format:
-tx = (addr, R, m, σ) where:
-• addr: The signing address
-• R: Address components (R2, C)  
-• m: The original message
-• σ: Signature components (Q_σ, H)
-
-🔄 Getting Started:
-1. Create signatures in the "Message Signing" section
-2. Return here to verify complete transactions
-3. All transaction components are automatically included
-
-💡 No manual address selection needed - the address is part of the transaction!`
+      return 'Create signatures in the "Message Signing" section to verify complete transactions here.'
     }
     
     return 'Select a transaction to verify or use manual input mode...'
@@ -402,23 +367,6 @@ tx = (addr, R, m, σ) where:
             }
           >
             Verify Transaction
-          </Button>
-          
-          <Button
-            onClick={() => {
-              console.log('Current txMessages:', txMessages)
-              console.log('Current addresses:', addresses)
-            }}
-            variant="secondary"
-          >
-            Debug Info
-          </Button>
-          
-          <Button
-            onClick={handleClearSelection}
-            variant="secondary"
-          >
-            Clear Selection
           </Button>
           
           <Button

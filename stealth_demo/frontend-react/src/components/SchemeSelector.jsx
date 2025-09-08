@@ -25,8 +25,8 @@ function SchemeSelector() {
 
   const getSchemeDisplayName = (scheme) => {
     const names = {
-      'stealth': 'Stealth (完整功能)',
-      'sitaiba': 'Sitaiba (無簽名功能)'
+      'stealth': 'Stealth',
+      'sitaiba': 'Sitaiba'
     }
     return names[scheme] || scheme
   }
@@ -99,14 +99,6 @@ function SchemeSelector() {
         </div>
 
         <div className="scheme-actions">
-          <button 
-            onClick={clearCurrentData}
-            className="btn-secondary"
-            title={`Clear all data for ${currentScheme} scheme`}
-          >
-            🧹 Clear Current Scheme
-          </button>
-          
           <button 
             onClick={clearAllData}
             className="btn-danger"
