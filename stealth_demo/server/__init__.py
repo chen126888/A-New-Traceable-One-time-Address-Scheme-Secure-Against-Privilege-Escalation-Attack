@@ -8,15 +8,9 @@ Provides key generation, address management, signing, verification, and identity
 __version__ = "1.0.0"
 __author__ = "Stealth Demo Team"
 
-from .app_refactored import create_app, main
-from .config import config
-from .crypto_services import CryptoServices
-from .library_wrapper import stealth_lib
+from .app import create_app, main
 
 __all__ = [
     'create_app',
-    'main', 
-    'config',
-    'CryptoServices',
-    'stealth_lib'
+    'main',
 ]

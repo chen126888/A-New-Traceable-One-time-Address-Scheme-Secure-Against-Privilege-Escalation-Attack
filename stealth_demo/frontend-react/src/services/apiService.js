@@ -79,11 +79,18 @@ class ApiService {
     })
   }
 
-  async signMessage(message, dskIndex) {
-    return this.post('/sign', {
-      message: message,
-      dsk_index: dskIndex,
-    })
+  async signMessage(message, dskIndex, addressIndex, keyIndex) {
+    const payload = { message };
+    if (dskIndex !== undefined) {
+      payload.dsk_index = dskIndex;
+    }
+    if (addressIndex !== undefined) {
+      payload.address_index = addressIndex;
+    }
+    if (keyIndex !== undefined) {
+      payload.key_index = keyIndex;
+    }
+    return this.post('/sign', payload);
   }
 
   async verifySignature(message, qSigmaHex, hHex, addressIndex) {
@@ -105,6 +112,10 @@ class ApiService {
 
   async getStatus() {
     return this.get('/status')
+  }
+
+  async getTxMessages() {
+    return this.get('/tx_messages');
   }
 
   // 重新啟用 reset 函數，但加上防護機制

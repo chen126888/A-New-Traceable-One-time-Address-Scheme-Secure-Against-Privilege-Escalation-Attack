@@ -3,8 +3,8 @@ Unified API routes for the multi-scheme cryptographic demo application.
 Routes automatically dispatch to the current active scheme.
 """
 from flask import request, jsonify
-from multi_scheme_config import config
-from scheme_manager import scheme_manager
+from .multi_scheme_config import config
+from .scheme_manager import scheme_manager
 
 
 def setup_routes(app):

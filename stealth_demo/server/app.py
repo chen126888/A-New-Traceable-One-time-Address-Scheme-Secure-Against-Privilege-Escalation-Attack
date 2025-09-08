@@ -6,10 +6,10 @@ from flask import Flask, send_from_directory
 import traceback
 from flask import jsonify
 
-from multi_scheme_config import config
-from scheme_manager import scheme_manager
+from .multi_scheme_config import config
+from .scheme_manager import scheme_manager
 # from library_wrapper import stealth_lib  # TODO: Will be managed by scheme_manager
-from unified_routes import setup_routes
+from .unified_routes import setup_routes
 
 
 def create_app():

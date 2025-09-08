@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(zip:*)",
+      "Bash(rg:*)",
+      "Bash(server/ )",
+      "Bash(frontend-react/dist/ )",
+      "Bash(c_src/ )",
+      "Bash(lib/ )",
+      "Bash(param/ )",
+      "Bash(Procfile )",
+      "Bash(requirements.txt )",
+      "Bash(.ebextensions )",
+      "Bash(find:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash:*)",
+      "Bash(git pull:*)",
+      "Read(//mnt/c/Users/chen1/Desktop/master/thesis/nccu/new/code/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

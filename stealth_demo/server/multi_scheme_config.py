@@ -1,10 +1,16 @@
 """
 Multi-scheme configuration module for the cryptographic demo application.
-Handles parameter files, system initialization, and data management for multiple schemes.
+Hangles parameter files, system initialization, and data management for multiple schemes.
 """
 import os
 import glob
 from typing import Dict, List, Optional
+
+
+# Get the absolute path to the directory containing this file
+_current_dir = os.path.dirname(os.path.abspath(__file__))
+# Construct the absolute path to the 'param' directory
+_param_base_dir = os.path.join(_current_dir, '..', 'param')
 
 
 class MultiSchemeConfig:
@@ -57,12 +63,12 @@ class MultiSchemeConfig:
     # Parameter file management (shared across schemes)
     def get_param_files(self) -> Dict:
         """Get list of available parameter files."""
-        param_dir = "../param"
-        if not os.path.exists(param_dir):
-            raise FileNotFoundError("Parameter directory not found")
+        # Use the pre-calculated absolute path
+        if not os.path.exists(_param_base_dir):
+            raise FileNotFoundError(f"Parameter directory not found at {_param_base_dir}")
         
         param_files = []
-        for file_path in glob.glob(os.path.join(param_dir, "*.param")):
+        for file_path in glob.glob(os.path.join(_param_base_dir, "*.param")):
             file_name = os.path.basename(file_path)
             file_size = os.path.getsize(file_path)
             param_files.append({
@@ -82,9 +88,10 @@ class MultiSchemeConfig:
     
     def validate_param_file(self, param_file: str) -> str:
         """Validate parameter file exists and return full path."""
-        full_path = os.path.join("../param", param_file)
+        # Use the pre-calculated absolute path
+        full_path = os.path.join(_param_base_dir, param_file)
         if not os.path.exists(full_path):
-            raise FileNotFoundError(f"Parameter file not found: {param_file}")
+            raise FileNotFoundError(f"Parameter file not found: {param_file} at {full_path}")
         return full_path
     
     # Scheme-specific state management

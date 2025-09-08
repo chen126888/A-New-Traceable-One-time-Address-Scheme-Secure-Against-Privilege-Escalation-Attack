@@ -1,91 +1,56 @@
 """
-Utility functions for the stealth demo application.
-Handles hex/bytes conversion, buffer management, and common operations.
+Stealth-specific utility functions.
+Inherits shared functionality and implements stealth-specific logic.
 """
-from ctypes import create_string_buffer
-from typing import Optional
+from typing import Optional, Dict, Any
 from .stealth_wrapper import get_stealth_lib
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from multi_scheme_config import config
+from ...multi_scheme_config import config
+from ...common.scheme_utils import SchemeUtilsBase
 
 
-def get_element_size() -> int:
-    """Get element sizes for buffer allocation."""
-    if not config.system_initialized:
-        return 512
-    stealth_lib = get_stealth_lib()
-    g1_size, zr_size = stealth_lib.get_element_sizes()
-    return max(g1_size, zr_size, 512)
+class StealthUtils(SchemeUtilsBase):
+    """Stealth-specific utility implementation."""
 
-
-def bytes_to_hex_safe_fixed(buf, element_type: str = 'G1') -> str:
-    """Convert buffer to hex string with fixed size."""
-    try:
+    def get_element_size(self) -> int:
+        """Get element sizes for buffer allocation with stealth-specific logic."""
+        if not config.system_initialized:
+            return 512
         stealth_lib = get_stealth_lib()
-        if element_type == 'G1':
-            expected_size = stealth_lib.get_element_sizes()[0]
-        elif element_type == 'Zr':
-            expected_size = stealth_lib.get_element_sizes()[1]
-        else:
-            raise ValueError(f"Unknown element type: {element_type}")
-    except:
-        # Fallback if library not available
-        expected_size = 512
-    
-    if expected_size > len(buf.raw):
-        expected_size = len(buf.raw)
-    
-    data = buf.raw[:expected_size]
-    
-    if all(b == 0 for b in data):
-        return ""
-    
-    return data.hex()
+        g1_size, zr_size = stealth_lib.get_element_sizes()
+        return max(g1_size, zr_size, 512)
 
+    def bytes_to_hex_safe_fixed(self, buf, element_type: str = 'G1') -> str:
+        """Convert buffer to hex string with stealth-specific logic."""
+        try:
+            stealth_lib = get_stealth_lib()
+            if element_type == 'G1':
+                expected_size = stealth_lib.get_element_sizes()[0]
+            elif element_type == 'Zr':
+                expected_size = stealth_lib.get_element_sizes()[1]
+            else:
+                raise ValueError(f"Unknown element type: {element_type}")
+        except:
+            # Fallback if library not available
+            expected_size = 512
 
-def hex_to_bytes_safe(hex_str: str) -> bytes:
-    """Safely convert hex string to bytes."""
-    try:
-        if len(hex_str) % 2 != 0:
-            raise ValueError("Hex string length must be even")
-        return bytes.fromhex(hex_str)
-    except ValueError as e:
-        raise ValueError(f"Invalid hex string: {str(e)}")
+        if expected_size > len(buf.raw):
+            expected_size = len(buf.raw)
 
+        data = buf.raw[:expected_size]
 
-def create_buffer(size: Optional[int] = None):
-    """Create a string buffer with proper size."""
-    if size is None:
-        size = get_element_size()
-    buf = create_string_buffer(size)
-    # Initialize to zero
-    for i in range(size):
-        buf[i] = 0
-    return buf
+        # Stealth-specific: return empty string if all zeros
+        if all(b == 0 for b in data):
+            return ""
 
+        return data.hex()
 
-def create_multiple_buffers(count: int, size: Optional[int] = None):
-    """Create multiple string buffers."""
-    if size is None:
-        size = get_element_size()
-    return [create_buffer(size) for _ in range(count)]
-
-
-def validate_index(index: int, data_list: list, item_name: str):
-    """Validate index against list bounds."""
-    if index < 0 or index >= len(data_list):
-        raise ValueError(f"Invalid {item_name}: {index}")
-
-
-def find_matching_key(target_b_hex: str):
-    """Find key with matching B_hex value."""
-    for i, key in enumerate(config.key_list):
-        if key['B_hex'] == target_b_hex:
-            return {
-                "index": i,
-                "id": key['id'],
-                "match": True
-            }
-    return None
+    def find_matching_key(self, target_b_hex: str) -> Optional[Dict[str, Any]]:
+        """Find key with matching B_hex value (stealth-specific simple matching)."""
+        for i, key in enumerate(config.key_list):
+            if key['B_hex'] == target_b_hex:
+                return {
+                    "index": i,
+                    "id": key['id'],
+                    "match": True
+                }
+        return None
